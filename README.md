@@ -208,11 +208,27 @@ time,flux
 
 ## NASA Data Sources
 
-- **TESS**: Transiting Exoplanet Survey Satellite
-- **Kepler**: Kepler Space Telescope
-- **K2**: K2 Mission
+The system queries multiple datasets from the NASA Exoplanet Archive, specifically filtering for **transit method** detections:
 
-Data is fetched from the NASA Exoplanet Archive and cached locally.
+### 1. **Kepler Objects of Interest (KOI)**
+- Comprehensive list of all confirmed exoplanets and candidates from Kepler mission
+- Classification field: `koi_pdisposition` (Disposition Using Kepler Data)
+- Includes: CONFIRMED, CANDIDATE, and FALSE POSITIVE designations
+
+### 2. **TESS Objects of Interest (TOI)**
+- All exoplanets and candidates identified by the TESS mission
+- Classification field: `tfopwg_disp` (TFOPWG Disposition)
+- Values: PC (Planetary Candidate), CP (Confirmed Planet), FP (False Positive), KP (Known Planet), APC (Ambiguous Planetary Candidate)
+
+### 3. **K2 Planets and Candidates**
+- All confirmed exoplanets and candidates from the K2 mission
+- Classification field: `k2c_disp` (Archive Disposition)
+
+### 4. **Confirmed Exoplanets**
+- All confirmed exoplanets discovered via transit method
+- Filter: `discoverymethod = 'Transit'`
+
+Data is fetched from the [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu/) and cached locally for performance.
 
 ## Troubleshooting
 

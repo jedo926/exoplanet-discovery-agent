@@ -413,13 +413,27 @@ async function detectNewPlanets(dataset = 'tess') {
     const newPlanets = [];
 
     // Process NASA data - only transit method planets
+    // Use proper classification columns as per NASA documentation:
+    // - Kepler: "koi_pdisposition" (Disposition Using Kepler Data)
+    // - TESS: "tfopwg_disp" (TFOPWG Disposition) - values: PC, CP, FP, KP, APC
+    // - K2: "k2c_disp" (Archive Disposition)
+    // - Confirmed: "discoverymethod"
     const transitPlanets = nasaData.filter(entry => {
-      const method = entry.discoverymethod || entry.koi_pdisposition || entry.toi_disposition || '';
-      return method.toLowerCase().includes('transit') ||
-             method.toLowerCase().includes('candidate') ||
-             method.toLowerCase().includes('confirmed') ||
-             method.toLowerCase().includes('pc') ||
-             method.toLowerCase().includes('cp');
+      const method = entry.discoverymethod ||
+                     entry.koi_pdisposition ||
+                     entry.tfopwg_disp ||
+                     entry.k2c_disp ||
+                     '';
+
+      const methodLower = method.toString().toLowerCase();
+
+      // Check for transit method or candidate/confirmed dispositions
+      return methodLower.includes('transit') ||
+             methodLower.includes('candidate') ||
+             methodLower.includes('confirmed') ||
+             methodLower === 'pc' ||  // Planetary Candidate (TESS)
+             methodLower === 'cp' ||  // Confirmed Planet (TESS)
+             methodLower === 'kp';    // Known Planet (TESS)
     });
 
     console.log(`Found ${transitPlanets.length} transit method planets in ${dataset.toUpperCase()}`);
