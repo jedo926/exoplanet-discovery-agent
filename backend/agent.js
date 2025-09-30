@@ -379,15 +379,36 @@ async function planetExists(planetName) {
 }
 
 /**
+ * Check if planet exists in database efficiently
+ */
+async function checkPlanetExists(planetName) {
+  try {
+    const { data, error } = await supabase
+      .from('exoplanets')
+      .select('planet_name')
+      .eq('planet_name', planetName)
+      .limit(1)
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+
+    return data !== null;
+  } catch (error) {
+    console.error(`Error checking planet ${planetName}:`, error);
+    return false;
+  }
+}
+
+/**
  * Detect new planets by comparing NASA data with database (Transit method only)
  */
 async function detectNewPlanets(dataset = 'tess') {
   try {
-    console.log(`Scanning ${dataset} data for TRANSIT METHOD planets...`);
+    console.log(`Scanning ${dataset.toUpperCase()} data for TRANSIT METHOD planets...`);
 
     const nasaData = await fetchNASAData(dataset);
-    const existingPlanets = await getAllPlanets();
-    const existingNames = new Set(existingPlanets.map(p => p.planet_name));
 
     const newPlanets = [];
 
@@ -401,7 +422,7 @@ async function detectNewPlanets(dataset = 'tess') {
              method.toLowerCase().includes('cp');
     });
 
-    console.log(`Found ${transitPlanets.length} transit method planets in ${dataset}`);
+    console.log(`Found ${transitPlanets.length} transit method planets in ${dataset.toUpperCase()}`);
 
     for (const entry of transitPlanets.slice(0, 100)) { // Process up to 100 transit planets
       const planetName = entry.pl_name ||
@@ -411,7 +432,10 @@ async function detectNewPlanets(dataset = 'tess') {
                         (entry.toi ? `TOI-${entry.toi}` : null) ||
                         `${dataset.toUpperCase()}-${Date.now()}`;
 
-      if (!existingNames.has(planetName)) {
+      // Check database efficiently for this specific planet
+      const exists = await checkPlanetExists(planetName);
+
+      if (!exists) {
         // Extract available features from NASA data
         const features = {
           orbital_period: entry.pl_orbper || entry.koi_period || entry.pl_orbpererr1 || 0,

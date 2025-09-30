@@ -68,6 +68,9 @@ exoplanet_discovery_agent_js/
      image_url TEXT,
      created_at TIMESTAMP DEFAULT NOW()
    );
+
+   -- Create index for fast planet name lookups
+   CREATE INDEX idx_exoplanets_planet_name ON exoplanets(planet_name);
    ```
 
 4. **Configure environment variables**:
