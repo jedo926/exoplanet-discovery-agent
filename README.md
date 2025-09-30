@@ -6,10 +6,8 @@ An AI-powered full-stack application that automatically detects exoplanets using
 
 - 🚀 **Automatic Startup Scan**: Automatically scans NASA databases for transit method planets when server starts
 - 🤖 **AI-Powered Classification**: Uses ChatGPT API to classify exoplanets as Confirmed, Candidate, or False Positive
-- 📊 **Light Curve Analysis**: Upload CSV files and analyze transit data with feature extraction
 - 🔍 **Transit Method Filter**: Specifically targets planets discovered via the transit method
 - 💾 **Database Integration**: Store and query discovered exoplanets in Supabase
-- 📈 **Interactive Visualizations**: Phase-folded transit curves using Plotly.js
 - 🌐 **Modern Web UI**: Responsive interface with auto-refresh and live notifications
 - ⚡ **Real-time Updates**: Frontend refreshes every 10 seconds to display new discoveries
 
@@ -28,61 +26,6 @@ exoplanet_discovery_agent_js/
 ├── package.json          # Dependencies
 └── README.md            # This file
 ```
-
-## Prerequisites
-
-- Node.js (v14 or higher)
-- npm
-- Supabase account (free tier works)
-- OpenAI API key (ChatGPT)
-
-## Installation
-
-1. **Clone or navigate to the project directory**:
-   ```bash
-   cd exoplanet_discovery_agent_js
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Set up Supabase**:
-   - Create a free account at [supabase.com](https://supabase.com)
-   - Create a new project
-   - In the SQL Editor, create the exoplanets table:
-
-   ```sql
-   CREATE TABLE exoplanets (
-     id BIGSERIAL PRIMARY KEY,
-     planet_name TEXT UNIQUE NOT NULL,
-     host_star TEXT,
-     period NUMERIC,
-     radius NUMERIC,
-     depth NUMERIC,
-     classification TEXT,
-     probability NUMERIC,
-     discovery_date TIMESTAMP,
-     dataset TEXT,
-     created_at TIMESTAMP DEFAULT NOW()
-   );
-   ```
-
-4. **Configure environment variables**:
-
-   Update the credentials in `backend/agent.js` (lines 9-11):
-   ```javascript
-   const OPENAI_API_KEY = 'your-openai-api-key';
-   const SUPABASE_URL = 'your-supabase-url';
-   const SUPABASE_KEY = 'your-supabase-anon-key';
-   ```
-
-   Or set environment variables:
-   ```bash
-   export SUPABASE_URL='your-supabase-url'
-   export SUPABASE_KEY='your-supabase-anon-key'
-   ```
 
 ## Usage
 
