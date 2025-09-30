@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exoplanet Discovery Agent</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌌 Exoplanet Discovery Agent</h1>
+            <p class="subtitle">AI-Powered Exoplanet Detection using NASA Data</p>
+        </header>
+
+        <main>
+
+            <!-- Planets Database Section -->
+            <section class="card planets-section">
+                <h2>Discovered Planets Database</h2>
+                <p class="scan-status">🔄 Auto-refreshing every 10 seconds to show new discoveries...</p>
+
+                <div class="filters">
+                    <select id="filterClassification">
+                        <option value="">All Classifications</option>
+                        <option value="Confirmed Planet">Confirmed Planet</option>
+                        <option value="Candidate Planet">Candidate Planet</option>
+                        <option value="False Positive">False Positive</option>
+                    </select>
+
+                    <select id="filterDataset">
+                        <option value="">All Datasets</option>
+                        <option value="tess">TESS</option>
+                        <option value="kepler">Kepler</option>
+                        <option value="k2">K2</option>
+                        <option value="uploaded">Uploaded</option>
+                    </select>
+                </div>
+
+                <div id="planetsCount" class="planets-count">
+                    Loading planets...
+                </div>
+
+                <div id="planetsTable" class="planets-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Planet Name</th>
+                                <th>Host Star</th>
+                                <th>Period (days)</th>
+                                <th>Radius (R⊕)</th>
+                                <th>Depth (ppm)</th>
+                                <th>Classification</th>
+                                <th>Confidence</th>
+                                <th>Dataset</th>
+                                <th>Discovery Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="planetsTableBody">
+                            <tr>
+                                <td colspan="9" class="loading-row">Loading planets...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Info Section -->
+            <section class="card info-section">
+                <h2>About</h2>
+                <p>
+                    This AI-powered agent automatically scans NASA's exoplanet databases on startup,
+                    specifically targeting planets discovered via the <strong>transit method</strong>.
+                    The system queries TESS, Kepler, K2, and confirmed planets datasets, classifies
+                    each discovery using ChatGPT AI, and stores them in a Supabase database for
+                    real-time viewing.
+                </p>
+
+                <div class="features-list">
+                    <h4>How it works:</h4>
+                    <ul>
+                        <li>Automatically scans NASA databases when server starts</li>
+                        <li>Filters for transit method planets only</li>
+                        <li>AI classification using ChatGPT (Confirmed/Candidate/False Positive)</li>
+                        <li>Stores discoveries in Supabase database</li>
+                        <li>Auto-refreshes every 10 seconds to show new planets</li>
+                        <li>Displays planet details: name, host star, period, radius, classification</li>
+                    </ul>
+                </div>
+
+                <div class="features-list">
+                    <h4>Data Sources:</h4>
+                    <ul>
+                        <li><strong>TESS:</strong> Transiting Exoplanet Survey Satellite candidates</li>
+                        <li><strong>Kepler:</strong> Kepler Objects of Interest (KOIs)</li>
+                        <li><strong>K2:</strong> K2 Mission candidates</li>
+                        <li><strong>Confirmed:</strong> All confirmed transit method planets</li>
+                    </ul>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Powered by ChatGPT API • NASA Exoplanet Archive • Supabase</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
