@@ -68,6 +68,66 @@ function getPlanetImage(radius, period) {
 }
 
 /**
+ * Search for real exoplanet images using NASA Images API
+ */
+async function searchNASAImage(planetName) {
+  try {
+    // Clean up planet name for search
+    const cleanName = planetName.replace(/^(TIC-|TOI-|KOI-|Kepler-)/i, '').trim();
+
+    // Search NASA Images API
+    const searchUrl = `https://images-api.nasa.gov/search?q=${encodeURIComponent(planetName)}&media_type=image`;
+    const response = await axios.get(searchUrl, { timeout: 5000 });
+
+    if (response.data?.collection?.items?.length > 0) {
+      const item = response.data.collection.items[0];
+
+      // Get the image link
+      if (item.links && item.links.length > 0) {
+        const imageUrl = item.links[0].href;
+        console.log(`✓ Found real image for ${planetName}: ${imageUrl}`);
+        return imageUrl;
+      }
+    }
+
+    // Also try searching with just the planet identifier
+    if (cleanName !== planetName) {
+      const altSearchUrl = `https://images-api.nasa.gov/search?q=exoplanet ${encodeURIComponent(cleanName)}&media_type=image`;
+      const altResponse = await axios.get(altSearchUrl, { timeout: 5000 });
+
+      if (altResponse.data?.collection?.items?.length > 0) {
+        const item = altResponse.data.collection.items[0];
+        if (item.links && item.links.length > 0) {
+          const imageUrl = item.links[0].href;
+          console.log(`✓ Found real image for ${planetName}: ${imageUrl}`);
+          return imageUrl;
+        }
+      }
+    }
+
+    return null;
+  } catch (error) {
+    // Silently fail - we'll use fallback image
+    return null;
+  }
+}
+
+/**
+ * Get planet image - tries real NASA image first, falls back to artist rendering
+ */
+async function getPlanetImageWithFallback(planetName, radius, period) {
+  // Try to get real NASA image first
+  const realImage = await searchNASAImage(planetName);
+
+  if (realImage) {
+    return realImage;
+  }
+
+  // Fall back to artist rendering based on planet type
+  return getPlanetImage(radius, period);
+}
+
+/**
  * Ensure cache directory exists
  */
 async function ensureCacheDir() {
@@ -371,6 +431,13 @@ async function detectNewPlanets(dataset = 'tess') {
         const aiResult = await classifyWithAI(features);
 
         if (aiResult.classification !== 'False Positive' && aiResult.probability > 0.5) {
+          // Try to get real NASA image first, fall back to artist rendering
+          const imageUrl = await getPlanetImageWithFallback(
+            planetName,
+            features.planetary_radius,
+            features.orbital_period
+          );
+
           const planetData = {
             planet_name: planetName,
             host_star: entry.hostname || 'Unknown',
@@ -381,7 +448,7 @@ async function detectNewPlanets(dataset = 'tess') {
             probability: aiResult.probability,
             discovery_date: new Date().toISOString(),
             dataset: dataset,
-            image_url: getPlanetImage(features.planetary_radius, features.orbital_period)
+            image_url: imageUrl
           };
 
           newPlanets.push(planetData);
