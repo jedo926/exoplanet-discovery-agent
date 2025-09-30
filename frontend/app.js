@@ -89,7 +89,7 @@ function renderPlanetsTable(planets) {
     if (planets.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="9" class="empty-row">No planets found</td>
+                <td colspan="10" class="empty-row">No planets found</td>
             </tr>
         `;
         return;
@@ -97,6 +97,12 @@ function renderPlanetsTable(planets) {
 
     tbody.innerHTML = planets.map(planet => `
         <tr>
+            <td class="planet-image-cell">
+                <img src="${planet.image_url || 'https://science.nasa.gov/wp-content/uploads/2023/09/pia23408-16.jpg'}"
+                     alt="${escapeHtml(planet.planet_name || 'Planet')}"
+                     class="planet-image"
+                     onerror="this.src='https://science.nasa.gov/wp-content/uploads/2023/09/pia23408-16.jpg'">
+            </td>
             <td class="planet-name">${escapeHtml(planet.planet_name || 'Unknown')}</td>
             <td>${escapeHtml(planet.host_star || 'Unknown')}</td>
             <td>${planet.period ? planet.period.toFixed(3) : 'N/A'}</td>

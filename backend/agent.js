@@ -25,6 +25,48 @@ const NASA_APIS = {
 // Cache directory
 const CACHE_DIR = path.join(__dirname, '../cache');
 
+// Planet type images (using NASA exoplanet images)
+const PLANET_IMAGES = {
+  gas_giant: 'https://science.nasa.gov/wp-content/uploads/2023/09/gasgiants-pia22946-16.jpg',
+  hot_jupiter: 'https://science.nasa.gov/wp-content/uploads/2023/09/hotjupiter-pia22087-16.jpg',
+  neptune_like: 'https://science.nasa.gov/wp-content/uploads/2023/09/neptunelike-pia23408-16.jpg',
+  super_earth: 'https://science.nasa.gov/wp-content/uploads/2023/09/superearth-pia22424-16.jpg',
+  terrestrial: 'https://science.nasa.gov/wp-content/uploads/2023/09/terrestrial-pia22093-16.jpg',
+  unknown: 'https://science.nasa.gov/wp-content/uploads/2023/09/pia23408-16.jpg'
+};
+
+/**
+ * Determine planet type based on radius and period
+ */
+function getPlanetType(radius, period) {
+  if (!radius || radius === 0) return 'unknown';
+
+  // Hot Jupiter: Large radius, short period
+  if (radius > 8 && period < 10) return 'hot_jupiter';
+
+  // Gas Giant: Large radius
+  if (radius > 8) return 'gas_giant';
+
+  // Neptune-like: Medium-large radius
+  if (radius >= 4 && radius <= 8) return 'neptune_like';
+
+  // Super-Earth: Larger than Earth but smaller than Neptune
+  if (radius >= 1.5 && radius < 4) return 'super_earth';
+
+  // Terrestrial: Earth-sized or smaller
+  if (radius < 1.5) return 'terrestrial';
+
+  return 'unknown';
+}
+
+/**
+ * Get planet image URL based on characteristics
+ */
+function getPlanetImage(radius, period) {
+  const planetType = getPlanetType(radius, period);
+  return PLANET_IMAGES[planetType];
+}
+
 /**
  * Ensure cache directory exists
  */
@@ -338,7 +380,8 @@ async function detectNewPlanets(dataset = 'tess') {
             classification: aiResult.classification,
             probability: aiResult.probability,
             discovery_date: new Date().toISOString(),
-            dataset: dataset
+            dataset: dataset,
+            image_url: getPlanetImage(features.planetary_radius, features.orbital_period)
           };
 
           newPlanets.push(planetData);

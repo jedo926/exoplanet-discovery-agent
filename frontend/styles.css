@@ -392,6 +392,27 @@ header h1 {
     color: var(--accent-blue);
 }
 
+.planet-image-cell {
+    width: 80px;
+    padding: 8px !important;
+}
+
+.planet-image {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--accent-blue);
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+    transition: all 0.3s ease;
+}
+
+.planet-image:hover {
+    transform: scale(1.1);
+    border-color: var(--accent-purple);
+    box-shadow: 0 6px 16px rgba(139, 92, 246, 0.5);
+}
+
 .badge {
     display: inline-block;
     padding: 4px 10px;

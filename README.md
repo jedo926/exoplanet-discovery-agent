@@ -65,6 +65,7 @@ exoplanet_discovery_agent_js/
      probability NUMERIC,
      discovery_date TIMESTAMP,
      dataset TEXT,
+     image_url TEXT,
      created_at TIMESTAMP DEFAULT NOW()
    );
    ```
