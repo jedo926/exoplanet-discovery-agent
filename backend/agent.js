@@ -17,6 +17,92 @@ const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 // ML Model API
 const ML_API_URL = 'http://localhost:5001';
 
+// NASA Exoplanet Archive API
+const NASA_EXOPLANET_API = 'https://exoplanetarchive.ipac.caltech.edu/TAP/sync';
+
+/**
+ * Fetch host star information from NASA Exoplanet Archive
+ */
+async function fetchHostStarInfo(ticId) {
+  if (!ticId) return null;
+
+  try {
+    // Extract numeric TIC ID
+    const ticNumber = ticId.toString().replace(/[^0-9]/g, '');
+    if (!ticNumber) return null;
+
+    console.log(`Fetching host star info for TIC ${ticNumber}...`);
+
+    // Query TESS Objects of Interest (TOI) table
+    const query = `SELECT TOP 1 tid, toipfx, ra, dec, st_tmag, st_rad, st_mass, st_teff
+                   FROM toi
+                   WHERE tid=${ticNumber}`;
+
+    const response = await axios.get(NASA_EXOPLANET_API, {
+      params: {
+        query: query,
+        format: 'json'
+      },
+      timeout: 5000
+    });
+
+    if (response.data && response.data.length > 0) {
+      const star = response.data[0];
+      const hostName = star.toipfx ? `TOI-${star.toipfx.split('.')[0]}` : `TIC ${ticNumber}`;
+
+      console.log(`Found host star: ${hostName}`);
+
+      return {
+        name: hostName,
+        tic_id: ticNumber,
+        ra: star.ra,
+        dec: star.dec,
+        magnitude: star.st_tmag,
+        radius: star.st_rad,
+        mass: star.st_mass,
+        temperature: star.st_teff
+      };
+    }
+
+    // If not found in TOI, try Kepler/K2
+    const keplerQuery = `SELECT TOP 1 kepid, kepoi_name, ra, dec, koi_steff, koi_srad, koi_smass
+                         FROM koi
+                         WHERE kepid=${ticNumber}`;
+
+    const keplerResponse = await axios.get(NASA_EXOPLANET_API, {
+      params: {
+        query: keplerQuery,
+        format: 'json'
+      },
+      timeout: 5000
+    });
+
+    if (keplerResponse.data && keplerResponse.data.length > 0) {
+      const star = keplerResponse.data[0];
+      const hostName = star.kepoi_name ? `Kepler-${star.kepoi_name.split('-')[0]}` : `KIC ${ticNumber}`;
+
+      console.log(`Found host star: ${hostName}`);
+
+      return {
+        name: hostName,
+        kepler_id: ticNumber,
+        ra: star.ra,
+        dec: star.dec,
+        radius: star.koi_srad,
+        mass: star.koi_smass,
+        temperature: star.koi_steff
+      };
+    }
+
+    console.log(`No host star info found for TIC ${ticNumber}`);
+    return null;
+
+  } catch (error) {
+    console.error('Error fetching host star info:', error.message);
+    return null;
+  }
+}
+
 /**
  * Calculate confidence score based on data quality metrics
  * @param {Object} features - Planet features (period, radius, depth, snr)
@@ -505,6 +591,20 @@ async function analyzeLightCurve(csvContent, ticId = null) {
       throw new Error('No valid data in CSV file');
     }
 
+    // Fetch host star information if TIC ID provided
+    let hostStarInfo = null;
+    let hostStarName = 'Unknown';
+
+    if (ticId) {
+      hostStarInfo = await fetchHostStarInfo(ticId);
+      if (hostStarInfo) {
+        hostStarName = hostStarInfo.name;
+        console.log(`Using host star: ${hostStarName}`);
+      } else {
+        hostStarName = `TIC ${ticId}`;
+      }
+    }
+
     // Extract features - now returns array of detected planets
     const detectedPlanets = extractFeatures(lightCurveData);
 
@@ -513,6 +613,8 @@ async function analyzeLightCurve(csvContent, ticId = null) {
       return {
         planets: [],
         totalDetected: 0,
+        hostStar: hostStarName,
+        hostStarInfo: hostStarInfo,
         message: 'No significant planetary signals detected in this light curve'
       };
     }
@@ -542,7 +644,7 @@ async function analyzeLightCurve(csvContent, ticId = null) {
         if (!exists) {
           await storePlanet({
             planet_name: planetName,
-            host_star: ticId || 'Unknown',
+            host_star: hostStarName,
             period: features.orbital_period,
             radius: features.planetary_radius,
             depth: features.transit_depth,
@@ -572,7 +674,9 @@ async function analyzeLightCurve(csvContent, ticId = null) {
       planets: results,
       totalDetected: detectedPlanets.length,
       storedCount: storedCount,
-      message: `Detected ${detectedPlanets.length} planet candidate(s), ${storedCount} stored in database`
+      hostStar: hostStarName,
+      hostStarInfo: hostStarInfo,
+      message: `Detected ${detectedPlanets.length} planet candidate(s) around ${hostStarName}, ${storedCount} stored in database`
     };
   } catch (error) {
     console.error('Analysis error:', error);
