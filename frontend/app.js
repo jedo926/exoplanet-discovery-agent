@@ -337,6 +337,14 @@ function displayResults(result) {
     description.textContent = result.reasoning || 'ML model classification';
     confidence.textContent = `${(result.probability * 100).toFixed(1)}%`;
 
+    // AI Explanation
+    const aiInsightsText = document.getElementById('aiInsightsText');
+    if (result.aiExplanation) {
+        aiInsightsText.textContent = result.aiExplanation;
+    } else {
+        aiInsightsText.textContent = 'AI explanation not available - using technical classification.';
+    }
+
     // Features
     const features = result.features;
     document.getElementById('featurePeriod').textContent = features.orbital_period?.toFixed(3) || '-';
