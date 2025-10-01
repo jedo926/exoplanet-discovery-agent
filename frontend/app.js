@@ -262,6 +262,7 @@ async function analyzeLightCurve() {
     const progressMessage = document.getElementById('progressMessage');
     let successCount = 0;
     let failCount = 0;
+    let totalPlanetsDetected = 0;
 
     try {
         for (let i = 0; i < currentFiles.length; i++) {
@@ -292,9 +293,14 @@ async function analyzeLightCurve() {
 
                 successCount++;
 
-                // Display results for single file, or show last result for multiple
+                // Count total planets detected across all files
+                if (data.result.planets && data.result.planets.length > 0) {
+                    totalPlanetsDetected += data.result.planets.length;
+                }
+
+                // Display results for single file
                 if (currentFiles.length === 1) {
-                    displayResults(data.result);
+                    displayMultiPlanetResults(data.result);
                 }
 
             } catch (error) {
@@ -305,7 +311,7 @@ async function analyzeLightCurve() {
 
         // Show summary for multiple files
         if (currentFiles.length > 1) {
-            progressMessage.textContent = `Complete! Analyzed ${successCount} file(s) successfully${failCount > 0 ? `, ${failCount} failed` : ''}. Navigating to Discoveries...`;
+            progressMessage.textContent = `Complete! Found ${totalPlanetsDetected} planet(s) in ${successCount} file(s)${failCount > 0 ? `, ${failCount} failed` : ''}. Navigating to Discoveries...`;
 
             // Navigate to Discoveries page after 2 seconds
             setTimeout(() => {
@@ -314,7 +320,7 @@ async function analyzeLightCurve() {
             }, 2000);
         } else {
             // For single file, show results for 3 seconds then navigate to discoveries
-            progressMessage.textContent = 'Analysis complete! Navigating to Discoveries...';
+            progressMessage.textContent = `Analysis complete! Found ${totalPlanetsDetected} planet(s). Navigating to Discoveries...`;
             setTimeout(() => {
                 handleNavigation('discoveries');
             }, 3000);
@@ -332,14 +338,34 @@ async function analyzeLightCurve() {
 }
 
 /**
- * Display Analysis Results
+ * Display Multi-Planet Analysis Results
  */
-function displayResults(result) {
+function displayMultiPlanetResults(result) {
     document.getElementById('analysisProgress').classList.add('hidden');
     document.getElementById('resultsSection').classList.remove('hidden');
 
+    // If no planets detected
+    if (!result.planets || result.planets.length === 0) {
+        const banner = document.getElementById('classificationBanner');
+        const icon = document.getElementById('resultIcon');
+        const label = document.getElementById('classificationLabel');
+        const description = document.getElementById('classificationDescription');
+        const confidence = document.getElementById('confidenceBadge');
+
+        icon.className = 'result-icon false-positive';
+        icon.textContent = '✕';
+        label.textContent = 'No Planets Detected';
+        description.textContent = result.message || 'No significant periodic signals found';
+        confidence.textContent = '0%';
+
+        document.getElementById('aiInsightsText').textContent = 'No planetary transits were detected in this light curve. This could be due to low signal quality, insufficient data, or the absence of transiting planets.';
+        return;
+    }
+
+    // Show first planet in main results
+    const firstPlanet = result.planets[0];
+
     // Classification Banner
-    const classType = result.classification.toLowerCase().replace(' ', '-');
     const banner = document.getElementById('classificationBanner');
     const icon = document.getElementById('resultIcon');
     const label = document.getElementById('classificationLabel');
@@ -347,10 +373,10 @@ function displayResults(result) {
     const confidence = document.getElementById('confidenceBadge');
 
     // Set icon
-    if (result.classification === 'Confirmed Planet') {
+    if (firstPlanet.classification === 'Confirmed Planet') {
         icon.className = 'result-icon confirmed';
         icon.textContent = '✓';
-    } else if (result.classification === 'Candidate Planet') {
+    } else if (firstPlanet.classification === 'Candidate Planet') {
         icon.className = 'result-icon candidate';
         icon.textContent = '◐';
     } else {
@@ -358,43 +384,45 @@ function displayResults(result) {
         icon.textContent = '✕';
     }
 
-    label.textContent = result.classification;
-    description.textContent = result.reasoning || 'ML model classification';
-    confidence.textContent = `${(result.probability * 100).toFixed(1)}%`;
+    label.textContent = result.totalDetected > 1
+        ? `${firstPlanet.classification} (+ ${result.totalDetected - 1} more)`
+        : firstPlanet.classification;
+    description.textContent = result.message || firstPlanet.reasoning || 'ML model classification';
+    confidence.textContent = `${(firstPlanet.probability * 100).toFixed(1)}%`;
 
     // AI Explanation
     const aiInsightsText = document.getElementById('aiInsightsText');
-    if (result.aiExplanation) {
-        aiInsightsText.textContent = result.aiExplanation;
+    if (result.totalDetected > 1) {
+        aiInsightsText.textContent = `🌟 Multi-planet system detected! Found ${result.totalDetected} planet candidates in this light curve. The primary planet has: ${firstPlanet.aiExplanation || firstPlanet.reasoning}`;
     } else {
-        aiInsightsText.textContent = 'AI explanation not available - using technical classification.';
+        aiInsightsText.textContent = firstPlanet.aiExplanation || firstPlanet.reasoning || 'AI explanation not available.';
     }
 
-    // Features
-    const features = result.features;
+    // Features (show first planet)
+    const features = firstPlanet.features;
     document.getElementById('featurePeriod').textContent = features.orbital_period?.toFixed(3) || '-';
     document.getElementById('featureRadius').textContent = features.planetary_radius?.toFixed(2) || '-';
     document.getElementById('featureDepth').textContent = features.transit_depth?.toFixed(2) || '-';
     document.getElementById('featureSNR').textContent = features.snr?.toFixed(2) || '-';
     document.getElementById('featureDuration').textContent = features.transit_duration?.toFixed(2) || '-';
-    document.getElementById('featureDataPoints').textContent = result.dataPoints || '-';
+    document.getElementById('featureDataPoints').textContent = features.data_points || '-';
 
-    // Phase-Folded Plot
-    if (result.plotData && result.plotData.length > 0) {
-        const trace = {
-            x: result.plotData.map(p => p.x),
-            y: result.plotData.map(p => p.y),
+    // Phase-Folded Plot (overlay all detected planets)
+    if (result.planets.length > 0) {
+        const traces = result.planets.map((planet, idx) => ({
+            x: planet.plotData.map(p => p.x),
+            y: planet.plotData.map(p => p.y),
             mode: 'markers',
             type: 'scatter',
+            name: `Planet ${planet.planetNumber} (P=${planet.features.orbital_period?.toFixed(2)}d)`,
             marker: {
                 size: 4,
-                color: '#6366f1',
                 opacity: 0.6
             }
-        };
+        }));
 
         const layout = {
-            title: false,
+            title: result.totalDetected > 1 ? `${result.totalDetected} Planets Detected` : 'Phase-Folded Light Curve',
             paper_bgcolor: '#131730',
             plot_bgcolor: '#0a0e27',
             font: { color: '#e2e8f0', family: 'Inter' },
@@ -408,10 +436,32 @@ function displayResults(result) {
                 gridcolor: '#1e293b',
                 zerolinecolor: '#1e293b'
             },
-            margin: { t: 20, r: 20, b: 50, l: 60 }
+            showlegend: result.totalDetected > 1,
+            legend: {
+                bgcolor: '#1e293b',
+                bordercolor: '#334155'
+            },
+            margin: { t: 40, r: 20, b: 50, l: 60 }
         };
 
-        Plotly.newPlot('phasePlot', [trace], layout, { responsive: true });
+        Plotly.newPlot('phasePlot', traces, layout, { responsive: true });
+    }
+}
+
+/**
+ * Display Analysis Results (legacy - kept for compatibility)
+ */
+function displayResults(result) {
+    // Handle both old single-planet format and new multi-planet format
+    if (result.planets) {
+        displayMultiPlanetResults(result);
+    } else {
+        // Old format - wrap in new structure
+        displayMultiPlanetResults({
+            planets: [result],
+            totalDetected: 1,
+            storedCount: result.stored ? 1 : 0
+        });
     }
 }
 

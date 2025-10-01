@@ -167,7 +167,113 @@ function detectFluxColumn(lightCurveData, timeColumn) {
 }
 
 /**
- * Extract features from light curve data
+ * Detect multiple periodic signals using Box Least Squares (BLS) algorithm
+ */
+function detectMultiplePeriods(times, fluxes, numPlanets = 5) {
+  const detectedPeriods = [];
+  let residualFluxes = [...fluxes];
+
+  const meanFlux = fluxes.reduce((a, b) => a + b, 0) / fluxes.length;
+  const stdFlux = Math.sqrt(fluxes.reduce((sum, f) => sum + Math.pow(f - meanFlux, 2), 0) / fluxes.length);
+
+  const timeDiff = times[times.length - 1] - times[0];
+  const minPeriod = 0.5; // days
+  const maxPeriod = Math.min(timeDiff / 3, 500); // days
+
+  // Search for up to numPlanets periodic signals
+  for (let planetNum = 0; planetNum < numPlanets; planetNum++) {
+    let bestPeriod = null;
+    let bestDepth = 0;
+    let bestSNR = 0;
+    let bestTransitIndices = [];
+
+    // Test periods from 0.5 to maxPeriod days
+    const periodSteps = 200;
+    for (let i = 0; i < periodSteps; i++) {
+      const period = minPeriod + (maxPeriod - minPeriod) * (i / periodSteps);
+
+      // Phase-fold the data
+      const phases = times.map(t => (t % period) / period);
+
+      // Look for transit-like dips in phase-folded data
+      const phaseBins = 50;
+      const binnedFlux = new Array(phaseBins).fill(0);
+      const binnedCount = new Array(phaseBins).fill(0);
+
+      for (let j = 0; j < phases.length; j++) {
+        const bin = Math.floor(phases[j] * phaseBins);
+        if (bin >= 0 && bin < phaseBins) {
+          binnedFlux[bin] += residualFluxes[j];
+          binnedCount[bin]++;
+        }
+      }
+
+      // Calculate mean flux per bin
+      const binnedMean = binnedFlux.map((sum, idx) =>
+        binnedCount[idx] > 0 ? sum / binnedCount[idx] : meanFlux
+      );
+
+      // Find the deepest bin (potential transit)
+      const transitBin = binnedMean.indexOf(Math.min(...binnedMean));
+      const transitDepth = (meanFlux - binnedMean[transitBin]) / meanFlux * 1e6; // ppm
+
+      // Calculate SNR for this period
+      const snr = transitDepth / (stdFlux / meanFlux * 1e6);
+
+      // Keep track of best period
+      if (snr > bestSNR && snr > 3 && transitDepth > 10) { // Minimum thresholds
+        bestSNR = snr;
+        bestPeriod = period;
+        bestDepth = transitDepth;
+
+        // Find indices of points in transit
+        bestTransitIndices = [];
+        const transitPhaseStart = (transitBin - 1) / phaseBins;
+        const transitPhaseEnd = (transitBin + 2) / phaseBins;
+
+        for (let j = 0; j < phases.length; j++) {
+          if (phases[j] >= transitPhaseStart && phases[j] <= transitPhaseEnd) {
+            bestTransitIndices.push(j);
+          }
+        }
+      }
+    }
+
+    // If we found a significant signal, add it and remove from residuals
+    if (bestPeriod && bestSNR > 3) {
+      const transitDuration = (bestPeriod * 0.1) * 24; // hours
+      const planetaryRadius = Math.sqrt(bestDepth / 1e6) * 11; // Earth radii
+
+      detectedPeriods.push({
+        orbital_period: bestPeriod,
+        transit_depth: bestDepth,
+        snr: bestSNR,
+        transit_duration: transitDuration,
+        planetary_radius: planetaryRadius,
+        odd_even_diff: Math.abs(stdFlux * 0.1),
+        data_points: times.length,
+        mean_flux: meanFlux,
+        std_flux: stdFlux
+      });
+
+      // Remove this signal from residuals for next iteration
+      // Set transit points closer to mean to "mask" the signal
+      for (const idx of bestTransitIndices) {
+        residualFluxes[idx] = meanFlux;
+      }
+
+      console.log(`Detected planet ${planetNum + 1}: Period=${bestPeriod.toFixed(2)}d, Depth=${bestDepth.toFixed(0)}ppm, SNR=${bestSNR.toFixed(1)}`);
+    } else {
+      // No more significant signals found
+      break;
+    }
+  }
+
+  return detectedPeriods;
+}
+
+/**
+ * Extract features from light curve data (now returns array of planet candidates)
  */
 function extractFeatures(lightCurveData) {
   try {
@@ -194,41 +300,12 @@ function extractFeatures(lightCurveData) {
       throw new Error('No valid numeric data found in detected columns');
     }
 
-    // Calculate statistics
-    const meanFlux = fluxes.reduce((a, b) => a + b, 0) / fluxes.length;
-    const stdFlux = Math.sqrt(fluxes.reduce((sum, f) => sum + Math.pow(f - meanFlux, 2), 0) / fluxes.length);
+    // Detect multiple planets in the light curve
+    const detectedPlanets = detectMultiplePeriods(times, fluxes, 5);
 
-    // Find transit depth (minimum flux deviation)
-    const minFlux = Math.min(...fluxes);
-    const transitDepth = ((meanFlux - minFlux) / meanFlux) * 1e6; // in ppm
+    console.log(`Found ${detectedPlanets.length} potential planet candidate(s) in light curve`);
 
-    // Estimate SNR
-    const snr = transitDepth / (stdFlux / meanFlux * 1e6);
-
-    // Estimate period (simplified - find recurring patterns)
-    const timeDiff = times[times.length - 1] - times[0];
-    const estimatedPeriod = timeDiff / 10; // rough estimate
-
-    // Transit duration (simplified)
-    const transitDuration = estimatedPeriod * 0.1; // ~10% of period
-
-    // Planetary radius (simplified calculation)
-    const planetaryRadius = Math.sqrt(transitDepth / 1e6) * 11; // Earth radii estimate
-
-    // Odd-even depth difference (simplified)
-    const oddEvenDiff = Math.abs(stdFlux * 0.1);
-
-    return {
-      orbital_period: estimatedPeriod,
-      transit_duration: transitDuration,
-      planetary_radius: planetaryRadius,
-      transit_depth: transitDepth,
-      snr: snr,
-      odd_even_diff: oddEvenDiff,
-      data_points: times.length,
-      mean_flux: meanFlux,
-      std_flux: stdFlux
-    };
+    return detectedPlanets;
   } catch (error) {
     console.error('Feature extraction error:', error);
     throw error;
@@ -417,7 +494,7 @@ function generatePlotData(lightCurveData, period) {
 }
 
 /**
- * Main analysis function
+ * Main analysis function - now detects multiple planets per file
  */
 async function analyzeLightCurve(csvContent, ticId = null) {
   try {
@@ -428,48 +505,74 @@ async function analyzeLightCurve(csvContent, ticId = null) {
       throw new Error('No valid data in CSV file');
     }
 
-    // Extract features
-    const features = extractFeatures(lightCurveData);
+    // Extract features - now returns array of detected planets
+    const detectedPlanets = extractFeatures(lightCurveData);
 
-    // Classify with ML model
-    const aiResult = await classifyWithML(features, 'uploaded');
+    if (detectedPlanets.length === 0) {
+      // No planets detected - return a false positive result
+      return {
+        planets: [],
+        totalDetected: 0,
+        message: 'No significant planetary signals detected in this light curve'
+      };
+    }
 
-    // Generate AI explanation for users
-    const aiExplanation = await generateAIExplanation(features, aiResult.classification, aiResult.probability);
+    // Process each detected planet
+    const results = [];
+    let storedCount = 0;
 
-    // Generate plot data
-    const plotData = generatePlotData(lightCurveData, features.orbital_period);
+    for (let i = 0; i < detectedPlanets.length; i++) {
+      const features = detectedPlanets[i];
 
-    // Store if confirmed or candidate
-    let stored = false;
-    if (aiResult.classification !== 'False Positive' && aiResult.probability > 0.5) {
-      const planetName = ticId ? `TIC-${ticId}` : `Planet-${Date.now()}`;
+      // Classify with ML model
+      const aiResult = await classifyWithML(features, 'uploaded');
 
-      const exists = await planetExists(planetName);
-      if (!exists) {
-        await storePlanet({
-          planet_name: planetName,
-          host_star: ticId || 'Unknown',
-          period: features.orbital_period,
-          radius: features.planetary_radius,
-          depth: features.transit_depth,
-          classification: aiResult.classification,
-          probability: aiResult.probability,
-          discovery_date: new Date().toISOString(),
-          dataset: 'uploaded'
-        });
-        stored = true;
+      // Generate AI explanation for users
+      const aiExplanation = await generateAIExplanation(features, aiResult.classification, aiResult.probability);
+
+      // Generate plot data
+      const plotData = generatePlotData(lightCurveData, features.orbital_period);
+
+      // Store if confirmed or candidate
+      let stored = false;
+      if (aiResult.classification !== 'False Positive' && aiResult.probability > 0.5) {
+        const planetName = ticId ? `TIC-${ticId}-${String.fromCharCode(98 + i)}` : `Planet-${Date.now()}-${i + 1}`;
+
+        const exists = await planetExists(planetName);
+        if (!exists) {
+          await storePlanet({
+            planet_name: planetName,
+            host_star: ticId || 'Unknown',
+            period: features.orbital_period,
+            radius: features.planetary_radius,
+            depth: features.transit_depth,
+            classification: aiResult.classification,
+            probability: aiResult.probability,
+            discovery_date: new Date().toISOString(),
+            dataset: 'uploaded'
+          });
+          stored = true;
+          storedCount++;
+        }
       }
+
+      results.push({
+        planetNumber: i + 1,
+        features,
+        classification: aiResult.classification,
+        probability: aiResult.probability,
+        reasoning: aiResult.reasoning,
+        aiExplanation: aiExplanation || aiResult.reasoning,
+        plotData,
+        stored
+      });
     }
 
     return {
-      features,
-      classification: aiResult.classification,
-      probability: aiResult.probability,
-      reasoning: aiResult.reasoning,
-      aiExplanation: aiExplanation || aiResult.reasoning, // Fallback to technical reasoning if AI unavailable
-      plotData,
-      stored
+      planets: results,
+      totalDetected: detectedPlanets.length,
+      storedCount: storedCount,
+      message: `Detected ${detectedPlanets.length} planet candidate(s), ${storedCount} stored in database`
     };
   } catch (error) {
     console.error('Analysis error:', error);
