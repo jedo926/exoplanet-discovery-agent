@@ -392,11 +392,26 @@ function displayMultiPlanetResults(result) {
 
     // AI Explanation
     const aiInsightsText = document.getElementById('aiInsightsText');
-    if (result.totalDetected > 1) {
-        aiInsightsText.textContent = `🌟 Multi-planet system detected! Found ${result.totalDetected} planet candidates in this light curve. The primary planet has: ${firstPlanet.aiExplanation || firstPlanet.reasoning}`;
-    } else {
-        aiInsightsText.textContent = firstPlanet.aiExplanation || firstPlanet.reasoning || 'AI explanation not available.';
+    let insightText = '';
+
+    // Add host star info if available
+    if (result.hostStar && result.hostStar !== 'Unknown') {
+        insightText = `⭐ Host Star: ${result.hostStar}`;
+        if (result.hostStarInfo) {
+            const starInfo = result.hostStarInfo;
+            if (starInfo.temperature) insightText += ` (${Math.round(starInfo.temperature)}K)`;
+            if (starInfo.magnitude) insightText += `, Mag: ${starInfo.magnitude.toFixed(2)}`;
+        }
+        insightText += '\n\n';
     }
+
+    if (result.totalDetected > 1) {
+        insightText += `🌟 Multi-planet system detected! Found ${result.totalDetected} planet candidates in this light curve. The primary planet has: ${firstPlanet.aiExplanation || firstPlanet.reasoning}`;
+    } else {
+        insightText += firstPlanet.aiExplanation || firstPlanet.reasoning || 'AI explanation not available.';
+    }
+
+    aiInsightsText.textContent = insightText;
 
     // Features (show first planet)
     const features = firstPlanet.features;
