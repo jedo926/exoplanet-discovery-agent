@@ -305,9 +305,18 @@ async function analyzeLightCurve() {
 
         // Show summary for multiple files
         if (currentFiles.length > 1) {
-            progressMessage.textContent = `Complete! Analyzed ${successCount} file(s) successfully${failCount > 0 ? `, ${failCount} failed` : ''}.`;
+            progressMessage.textContent = `Complete! Analyzed ${successCount} file(s) successfully${failCount > 0 ? `, ${failCount} failed` : ''}. Navigating to Discoveries...`;
+
+            // Navigate to Discoveries page after 2 seconds
             setTimeout(() => {
                 document.getElementById('analysisProgress').classList.add('hidden');
+                handleNavigation('discoveries');
+            }, 2000);
+        } else {
+            // For single file, show results for 3 seconds then navigate to discoveries
+            progressMessage.textContent = 'Analysis complete! Navigating to Discoveries...';
+            setTimeout(() => {
+                handleNavigation('discoveries');
             }, 3000);
         }
 
