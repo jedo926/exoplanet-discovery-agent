@@ -1,13 +1,18 @@
 const axios = require('axios');
 const Papa = require('papaparse');
 const { createClient } = require('@supabase/supabase-js');
+const OpenAI = require('openai');
 
 // Configuration
 const SUPABASE_URL = process.env.SUPABASE_URL || 'your-supabase-url-here';
 const SUPABASE_KEY = process.env.SUPABASE_KEY || 'your-supabase-key-here';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // Initialize Supabase client
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Initialize OpenAI client
+const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 
 // ML Model API
 const ML_API_URL = 'http://localhost:5001';
@@ -232,6 +237,53 @@ function extractFeatures(lightCurveData) {
 
 
 /**
+ * Generate natural language explanation using OpenAI
+ */
+async function generateAIExplanation(features, classification, probability) {
+  if (!openai) {
+    return null; // OpenAI not configured
+  }
+
+  try {
+    const prompt = `You are an astronomy educator explaining exoplanet discoveries to non-scientists.
+
+A light curve analysis has detected the following:
+
+Classification: ${classification}
+Confidence: ${(probability * 100).toFixed(1)}%
+
+Planet Characteristics:
+- Orbital Period: ${features.orbital_period?.toFixed(2)} days
+- Planet Radius: ${features.planetary_radius?.toFixed(2)} Earth radii
+- Transit Depth: ${features.transit_depth?.toFixed(0)} parts per million
+- Signal Quality (SNR): ${features.snr?.toFixed(1)}
+- Transit Duration: ${features.transit_duration?.toFixed(2)} hours
+
+Generate a friendly, educational explanation in 2-3 sentences that:
+1. Explains what this means in plain English
+2. Compares the planet to something familiar (Jupiter, Earth, etc.)
+3. Mentions why this discovery is interesting or significant
+
+Keep it under 100 words, enthusiastic but scientifically accurate.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are an enthusiastic astronomy educator who makes space discoveries accessible to everyone." },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 150,
+      temperature: 0.7
+    });
+
+    return completion.choices[0].message.content.trim();
+  } catch (error) {
+    console.error('OpenAI explanation error:', error.message);
+    return null;
+  }
+}
+
+/**
  * Fallback rule-based classification
  */
 function fallbackClassification(features) {
@@ -382,6 +434,9 @@ async function analyzeLightCurve(csvContent, ticId = null) {
     // Classify with ML model
     const aiResult = await classifyWithML(features, 'uploaded');
 
+    // Generate AI explanation for users
+    const aiExplanation = await generateAIExplanation(features, aiResult.classification, aiResult.probability);
+
     // Generate plot data
     const plotData = generatePlotData(lightCurveData, features.orbital_period);
 
@@ -412,6 +467,7 @@ async function analyzeLightCurve(csvContent, ticId = null) {
       classification: aiResult.classification,
       probability: aiResult.probability,
       reasoning: aiResult.reasoning,
+      aiExplanation: aiExplanation || aiResult.reasoning, // Fallback to technical reasoning if AI unavailable
       plotData,
       stored
     };
