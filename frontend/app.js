@@ -34,8 +34,24 @@ function setupEventListeners() {
     // File Upload
     const fileInput = document.getElementById('lightCurveFile');
     const uploadArea = document.getElementById('uploadArea');
+    const selectFilesBtn = document.getElementById('selectFilesBtn');
+    const selectFolderBtn = document.getElementById('selectFolderBtn');
 
-    uploadArea.addEventListener('click', () => fileInput.click());
+    // Separate handlers for files and folders
+    selectFilesBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        fileInput.removeAttribute('webkitdirectory');
+        fileInput.removeAttribute('directory');
+        fileInput.click();
+    });
+
+    selectFolderBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        fileInput.setAttribute('webkitdirectory', '');
+        fileInput.setAttribute('directory', '');
+        fileInput.click();
+    });
+
     fileInput.addEventListener('change', handleFileSelect);
 
     // Remove Files
@@ -289,9 +305,18 @@ async function analyzeLightCurve() {
 
         // Show summary for multiple files
         if (currentFiles.length > 1) {
-            progressMessage.textContent = `Complete! Analyzed ${successCount} file(s) successfully${failCount > 0 ? `, ${failCount} failed` : ''}.`;
+            progressMessage.textContent = `Complete! Analyzed ${successCount} file(s) successfully${failCount > 0 ? `, ${failCount} failed` : ''}. Navigating to Discoveries...`;
+
+            // Navigate to Discoveries page after 2 seconds
             setTimeout(() => {
                 document.getElementById('analysisProgress').classList.add('hidden');
+                handleNavigation('discoveries');
+            }, 2000);
+        } else {
+            // For single file, show results for 3 seconds then navigate to discoveries
+            progressMessage.textContent = 'Analysis complete! Navigating to Discoveries...';
+            setTimeout(() => {
+                handleNavigation('discoveries');
             }, 3000);
         }
 
@@ -336,6 +361,14 @@ function displayResults(result) {
     label.textContent = result.classification;
     description.textContent = result.reasoning || 'ML model classification';
     confidence.textContent = `${(result.probability * 100).toFixed(1)}%`;
+
+    // AI Explanation
+    const aiInsightsText = document.getElementById('aiInsightsText');
+    if (result.aiExplanation) {
+        aiInsightsText.textContent = result.aiExplanation;
+    } else {
+        aiInsightsText.textContent = 'AI explanation not available - using technical classification.';
+    }
 
     // Features
     const features = result.features;
