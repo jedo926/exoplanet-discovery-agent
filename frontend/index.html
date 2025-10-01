@@ -3,110 +3,437 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exoplanet Discovery Agent</title>
+    <title>CosmicAI - Exoplanet Discovery</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🌌 Exoplanet Discovery Agent</h1>
-            <p class="subtitle">AI-Powered Exoplanet Detection using NASA Data</p>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <circle cx="12" cy="12" r="6"/>
+                    <circle cx="12" cy="12" r="2"/>
+                </svg>
+                <span class="logo-text">CosmicAI</span>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <button class="nav-item active" data-view="analyze">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span>Analyze</span>
+            </button>
+
+            <button class="nav-item" data-view="discoveries">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <span>Discoveries</span>
+            </button>
+
+            <button class="nav-item" data-view="statistics">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="20" x2="18" y2="10"/>
+                    <line x1="12" y1="20" x2="12" y2="4"/>
+                    <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                <span>Statistics</span>
+            </button>
+
+            <button class="nav-item" data-view="about">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="16" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+                <span>About</span>
+            </button>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="ml-status">
+                <div class="status-indicator"></div>
+                <div class="status-text">
+                    <span class="status-label">ML Model</span>
+                    <span class="status-value">Active</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-content">
+                <div class="header-title">
+                    <h1 id="pageTitle">Light Curve Analysis</h1>
+                    <p id="pageSubtitle">Upload and analyze transit data using machine learning</p>
+                </div>
+                <div class="header-stats">
+                    <div class="stat-badge">
+                        <span class="stat-label">Model Accuracy</span>
+                        <span class="stat-value" id="modelAccuracy">79.7%</span>
+                    </div>
+                    <div class="stat-badge">
+                        <span class="stat-label">Total Discoveries</span>
+                        <span class="stat-value" id="totalDiscoveries">0</span>
+                    </div>
+                </div>
+            </div>
         </header>
 
-        <main>
-
-            <!-- Planets Database Section -->
-            <section class="card planets-section">
-                <h2>Discovered Planets Database</h2>
-                <p class="scan-status">🔄 Auto-refreshing every 10 seconds to show new discoveries...</p>
-
-                <div class="filters">
-                    <select id="filterClassification">
-                        <option value="">All Classifications</option>
-                        <option value="Confirmed Planet">Confirmed Planet</option>
-                        <option value="Candidate Planet">Candidate Planet</option>
-                        <option value="False Positive">False Positive</option>
-                    </select>
-
-                    <select id="filterDataset">
-                        <option value="">All Datasets</option>
-                        <option value="tess">TESS</option>
-                        <option value="kepler">Kepler</option>
-                        <option value="k2">K2</option>
-                        <option value="uploaded">Uploaded</option>
-                    </select>
+        <!-- View: Analyze -->
+        <div class="view active" id="analyzeView">
+            <!-- Upload Section -->
+            <section class="card">
+                <div class="card-header">
+                    <h2>Upload Light Curve Data</h2>
+                    <p class="card-subtitle">Multiple formats supported: TESS, Kepler, K2, FITS, and standard text files</p>
                 </div>
+                <div class="card-body">
+                    <div class="upload-area" id="uploadArea">
+                        <input type="file" id="lightCurveFile" accept=".csv,.txt,.dat,.tsv,.fits,.fit,.lc,.tbl,.ascii" multiple hidden>
+                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <h3>Drag & drop your light curve files here</h3>
+                        <p>or click to browse</p>
+                        <span class="upload-hint">Supported: CSV, TXT, DAT, TSV, FITS, LC, TBL, ASCII (max 10MB per file) • Multiple files allowed</span>
+                    </div>
 
-                <div id="planetsCount" class="planets-count">
-                    Loading planets...
-                </div>
+                    <div class="files-selected hidden" id="filesSelected">
+                        <div class="files-header">
+                            <span class="files-count" id="filesCount">0 files selected</span>
+                            <button class="btn-icon" id="removeAllFiles" title="Remove all files">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="files-list" id="filesList"></div>
+                    </div>
 
-                <div id="planetsTable" class="planets-table">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Image</th>
-                                <th>Planet Name</th>
-                                <th>Host Star</th>
-                                <th>Period (days)</th>
-                                <th>Radius (R⊕)</th>
-                                <th>Depth (ppm)</th>
-                                <th>Classification</th>
-                                <th>Confidence</th>
-                                <th>Dataset</th>
-                                <th>Discovery Date</th>
-                            </tr>
-                        </thead>
-                        <tbody id="planetsTableBody">
-                            <tr>
-                                <td colspan="10" class="loading-row">Loading planets...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="form-group">
+                        <label for="planetId">Planet Identifier (Optional)</label>
+                        <input type="text" id="planetId" class="form-input" placeholder="e.g., TIC-12345, KOI-789">
+                    </div>
+
+                    <button id="analyzeBtn" class="btn btn-primary" disabled>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                        </svg>
+                        Analyze Light Curve
+                    </button>
                 </div>
             </section>
 
-            <!-- Info Section -->
-            <section class="card info-section">
-                <h2>About</h2>
-                <p>
-                    This AI-powered agent automatically scans NASA's exoplanet databases on startup,
-                    specifically targeting planets discovered via the <strong>transit method</strong>.
-                    The system queries TESS, Kepler, K2, and confirmed planets datasets, classifies
-                    each discovery using ChatGPT AI, and stores them in a Supabase database for
-                    real-time viewing.
-                </p>
-
-                <div class="features-list">
-                    <h4>How it works:</h4>
-                    <ul>
-                        <li>Automatically scans NASA databases when server starts</li>
-                        <li>Filters for transit method planets only</li>
-                        <li>AI classification using ChatGPT (Confirmed/Candidate/False Positive)</li>
-                        <li>Stores discoveries in Supabase database</li>
-                        <li>Auto-refreshes every 10 seconds to show new planets</li>
-                        <li>Displays planet details: name, host star, period, radius, classification</li>
-                    </ul>
-                </div>
-
-                <div class="features-list">
-                    <h4>Data Sources:</h4>
-                    <ul>
-                        <li><strong>TESS:</strong> Transiting Exoplanet Survey Satellite candidates</li>
-                        <li><strong>Kepler:</strong> Kepler Objects of Interest (KOIs)</li>
-                        <li><strong>K2:</strong> K2 Mission candidates</li>
-                        <li><strong>Confirmed:</strong> All confirmed transit method planets</li>
-                    </ul>
+            <!-- Analysis Progress -->
+            <section class="card hidden" id="analysisProgress">
+                <div class="card-body">
+                    <div class="progress-container">
+                        <div class="progress-spinner"></div>
+                        <div class="progress-text">
+                            <h3 id="progressTitle">Analyzing light curve...</h3>
+                            <p id="progressMessage">Extracting features and classifying transit signals</p>
+                        </div>
+                    </div>
                 </div>
             </section>
-        </main>
 
-        <footer>
-            <p>Powered by ChatGPT API • NASA Exoplanet Archive • Supabase</p>
-        </footer>
-    </div>
+            <!-- Results Section -->
+            <section class="card hidden" id="resultsSection">
+                <div class="card-header">
+                    <h2>Analysis Results</h2>
+                    <button class="btn btn-secondary btn-sm" id="newAnalysisBtn">New Analysis</button>
+                </div>
+                <div class="card-body">
+                    <!-- Classification Result -->
+                    <div class="result-banner" id="classificationBanner">
+                        <div class="result-icon" id="resultIcon"></div>
+                        <div class="result-text">
+                            <h3 id="classificationLabel"></h3>
+                            <p id="classificationDescription"></p>
+                        </div>
+                        <div class="confidence-badge" id="confidenceBadge"></div>
+                    </div>
+
+                    <!-- Feature Grid -->
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <span class="feature-label">Orbital Period</span>
+                            <span class="feature-value" id="featurePeriod">-</span>
+                            <span class="feature-unit">days</span>
+                        </div>
+                        <div class="feature-card">
+                            <span class="feature-label">Planet Radius</span>
+                            <span class="feature-value" id="featureRadius">-</span>
+                            <span class="feature-unit">R⊕</span>
+                        </div>
+                        <div class="feature-card">
+                            <span class="feature-label">Transit Depth</span>
+                            <span class="feature-value" id="featureDepth">-</span>
+                            <span class="feature-unit">ppm</span>
+                        </div>
+                        <div class="feature-card">
+                            <span class="feature-label">Signal-to-Noise</span>
+                            <span class="feature-value" id="featureSNR">-</span>
+                            <span class="feature-unit">σ</span>
+                        </div>
+                        <div class="feature-card">
+                            <span class="feature-label">Transit Duration</span>
+                            <span class="feature-value" id="featureDuration">-</span>
+                            <span class="feature-unit">hours</span>
+                        </div>
+                        <div class="feature-card">
+                            <span class="feature-label">Data Points</span>
+                            <span class="feature-value" id="featureDataPoints">-</span>
+                            <span class="feature-unit">samples</span>
+                        </div>
+                    </div>
+
+                    <!-- Phase-Folded Plot -->
+                    <div class="plot-container">
+                        <div class="plot-header">
+                            <h3>Phase-Folded Light Curve</h3>
+                            <p>Transit signature aligned by orbital period</p>
+                        </div>
+                        <div id="phasePlot" class="plot"></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- View: Discoveries -->
+        <div class="view" id="discoveriesView">
+            <section class="card">
+                <div class="card-header">
+                    <h2>Planet Database</h2>
+                    <div class="filter-group">
+                        <select id="filterClassification" class="form-select">
+                            <option value="">All Classifications</option>
+                            <option value="Confirmed Planet">Confirmed Planet</option>
+                            <option value="Candidate Planet">Candidate Planet</option>
+                        </select>
+                        <input type="text" id="searchPlanet" class="form-input" placeholder="Search planets...">
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Planet Name</th>
+                                    <th>Host Star</th>
+                                    <th>Period (d)</th>
+                                    <th>Radius (R⊕)</th>
+                                    <th>Depth (ppm)</th>
+                                    <th>Classification</th>
+                                    <th>Confidence</th>
+                                    <th>Discovery Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="planetsTableBody">
+                                <tr>
+                                    <td colspan="8" class="loading-cell">
+                                        <div class="loading-spinner"></div>
+                                        <span>Loading discoveries...</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination">
+                        <button class="btn btn-secondary btn-sm" id="prevPage" disabled>Previous</button>
+                        <span class="pagination-info" id="pageInfo">Page 1 of 1</span>
+                        <button class="btn btn-secondary btn-sm" id="nextPage" disabled>Next</button>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- View: Statistics -->
+        <div class="view" id="statisticsView">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon confirmed">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                            <polyline points="22 4 12 14.01 9 11.01"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-label">Confirmed Planets</span>
+                        <span class="stat-number" id="statConfirmed">0</span>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon candidate">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-label">Candidates</span>
+                        <span class="stat-number" id="statCandidates">0</span>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon accuracy">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-label">ML Model Accuracy</span>
+                        <span class="stat-number" id="statAccuracy">79.7%</span>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon total">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="1" x2="12" y2="23"/>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-label">Total Analyses</span>
+                        <span class="stat-number" id="statTotal">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <section class="card">
+                <div class="card-header">
+                    <h2>Model Performance</h2>
+                    <p class="card-subtitle">Random Forest Classifier trained on NASA datasets</p>
+                </div>
+                <div class="card-body">
+                    <div class="model-metrics">
+                        <div class="metric">
+                            <span class="metric-label">Algorithm</span>
+                            <span class="metric-value">Random Forest</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Training Samples</span>
+                            <span class="metric-value" id="metricSamples">18,906</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Features</span>
+                            <span class="metric-value">Period, Radius, Depth, SNR, Duration</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Cross-Validation</span>
+                            <span class="metric-value" id="metricCV">77.5% ± 2.0%</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- View: About -->
+        <div class="view" id="aboutView">
+            <section class="card">
+                <div class="card-header">
+                    <h2>About CosmicAI</h2>
+                </div>
+                <div class="card-body">
+                    <div class="about-content">
+                        <p class="about-text">
+                            CosmicAI is a machine learning-powered platform for discovering exoplanets through light curve analysis.
+                            Our system uses a Random Forest classifier trained on NASA's Kepler, K2, and TESS mission data to automatically
+                            identify and classify planetary transit signals.
+                        </p>
+
+                        <h3>How It Works</h3>
+                        <div class="process-steps">
+                            <div class="process-step">
+                                <div class="step-number">1</div>
+                                <div class="step-content">
+                                    <h4>Upload Data</h4>
+                                    <p>Upload CSV files containing time-series photometric data from telescopes</p>
+                                </div>
+                            </div>
+                            <div class="process-step">
+                                <div class="step-number">2</div>
+                                <div class="step-content">
+                                    <h4>Feature Extraction</h4>
+                                    <p>Automatically extract orbital period, transit depth, radius, and signal quality metrics</p>
+                                </div>
+                            </div>
+                            <div class="process-step">
+                                <div class="step-number">3</div>
+                                <div class="step-content">
+                                    <h4>ML Classification</h4>
+                                    <p>Random Forest model analyzes features and classifies the transit signal</p>
+                                </div>
+                            </div>
+                            <div class="process-step">
+                                <div class="step-number">4</div>
+                                <div class="step-content">
+                                    <h4>Results</h4>
+                                    <p>View classification, confidence scores, and phase-folded transit visualization</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h3>Supported File Formats</h3>
+                        <div class="code-block">
+                            <code>time,flux
+0.0,1.0000
+0.1,0.9998
+0.2,0.9985
+...</code>
+                        </div>
+                        <ul class="requirements-list">
+                            <li><strong>Formats:</strong> CSV, TXT, DAT, TSV, FITS, LC, TBL, ASCII</li>
+                            <li><strong>Columns:</strong> time (or TIME/bjd/HJD) and flux (or FLUX/sap_flux/mag)</li>
+                            <li><strong>Time:</strong> Days (BJD, HJD, or relative)</li>
+                            <li><strong>Flux:</strong> Normalized or raw photometry</li>
+                            <li><strong>Sources:</strong> TESS, Kepler, K2, ground-based telescopes, FITS files</li>
+                            <li><strong>Delimiters:</strong> Comma, tab, space, or pipe-separated</li>
+                        </ul>
+
+                        <h3>Technical Details</h3>
+                        <div class="tech-details">
+                            <div class="tech-item">
+                                <strong>Model:</strong> Random Forest (200 estimators)
+                            </div>
+                            <div class="tech-item">
+                                <strong>Training Data:</strong> 18,906 samples from NASA Exoplanet Archive
+                            </div>
+                            <div class="tech-item">
+                                <strong>Accuracy:</strong> 79.7% test accuracy, 77.5% cross-validation
+                            </div>
+                            <div class="tech-item">
+                                <strong>Stack:</strong> Python (scikit-learn, Flask), Node.js, PostgreSQL
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
 
     <script src="app.js"></script>
 </body>

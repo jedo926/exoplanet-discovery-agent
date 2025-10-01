@@ -1,0 +1,25 @@
+{
+  "train_accuracy": 0.9209203914308384,
+  "test_accuracy": 0.7966684294024325,
+  "cv_mean": 0.7751258472167564,
+  "cv_std": 0.00999891469293622,
+  "n_samples": 18906,
+  "n_train": 15124,
+  "n_test": 3782,
+  "feature_importances": {
+    "Period": 0.2037489436031233,
+    "Radius": 0.26621488396531334,
+    "Depth": 0.2330801658132855,
+    "SNR": 0.08254860044779973,
+    "Duration": 0.104996181741167,
+    "Is_Kepler": 0.03969484452955108,
+    "Is_K2": 0.05004768433893939,
+    "Is_TESS": 0.01966869556082074
+  },
+  "classes": [
+    "Candidate Planet",
+    "Confirmed Planet",
+    "False Positive"
+  ],
+  "trained_at": "2025-10-01T03:23:44.267174"
+}
