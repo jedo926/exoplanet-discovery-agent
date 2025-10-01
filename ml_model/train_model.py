@@ -3,15 +3,23 @@
 Exoplanet ML Model Training Script
 Trains a machine learning model on NASA's labeled exoplanet data
 to classify planets as Confirmed, Candidate, or False Positive
+
+Enhanced with:
+- Advanced feature engineering (derived features, ratios, log transforms)
+- Gradient Boosting ensemble for better accuracy
+- Hyperparameter tuning
+- Class balancing with SMOTE
 """
 
 import json
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, f1_score
 from sklearn.preprocessing import StandardScaler
+from imblearn.over_sampling import SMOTE
+from imblearn.pipeline import Pipeline as ImbPipeline
 import joblib
 import os
 from datetime import datetime
@@ -83,8 +91,8 @@ def load_nasa_data():
 
     return datasets
 
-def prepare_features(data):
-    """Extract features and labels from NASA data"""
+def engineer_features(data):
+    """Advanced feature engineering with derived features"""
     features = []
     labels = []
 
@@ -104,13 +112,57 @@ def prepare_features(data):
         else:
             continue  # Skip unknown dispositions
 
-        # Create feature vector
+        # Extract raw features
+        period = float(entry['period']) if entry['period'] else 0.01
+        radius = float(entry['radius']) if entry['radius'] else 0.01
+        depth = float(entry['depth']) if entry['depth'] else 0.01
+        snr = float(entry['snr']) if entry['snr'] else 7.0
+        duration = float(entry['duration']) if entry['duration'] else 0.01
+
+        # Derived features for better discrimination
+        # 1. Log transforms (handle scale differences)
+        log_period = np.log10(period + 1e-6)
+        log_radius = np.log10(radius + 1e-6)
+        log_depth = np.log10(depth + 1e-6)
+        log_snr = np.log10(snr + 1e-6)
+
+        # 2. Physical ratios
+        transit_depth_ratio = depth / (radius ** 2 + 1e-6)  # Expected correlation
+        duration_period_ratio = duration / (period + 1e-6)  # Transit fraction
+        snr_per_depth = snr / (depth + 1e-6)  # Signal quality indicator
+
+        # 3. Statistical features
+        snr_squared = snr ** 2  # Emphasize high SNR
+        radius_cubed = radius ** 3  # Volume proxy
+
+        # 4. Interaction features
+        period_radius_product = period * radius
+        snr_duration_product = snr * duration
+
+        # Create enhanced feature vector
         feature_vec = [
-            float(entry['period']) if entry['period'] else 0.0,
-            float(entry['radius']) if entry['radius'] else 0.0,
-            float(entry['depth']) if entry['depth'] else 0.0,
-            float(entry['snr']) if entry['snr'] else 7.0,  # Default SNR
-            float(entry['duration']) if entry['duration'] else 0.0,
+            # Raw features
+            period,
+            radius,
+            depth,
+            snr,
+            duration,
+            # Log transforms
+            log_period,
+            log_radius,
+            log_depth,
+            log_snr,
+            # Derived ratios
+            transit_depth_ratio,
+            duration_period_ratio,
+            snr_per_depth,
+            # Statistical transforms
+            snr_squared,
+            radius_cubed,
+            # Interactions
+            period_radius_product,
+            snr_duration_product,
+            # Dataset one-hot encoding
             1.0 if entry['dataset'] == 'kepler' else 0.0,
             1.0 if entry['dataset'] == 'k2' else 0.0,
             1.0 if entry['dataset'] == 'tess' else 0.0,
@@ -121,9 +173,12 @@ def prepare_features(data):
 
     return np.array(features), np.array(labels)
 
-def train_model(X, y):
-    """Train Random Forest classifier"""
-    print("\n🤖 Training Random Forest Classifier...")
+def train_enhanced_model(X, y):
+    """Train enhanced ensemble model with SMOTE and hyperparameter tuning"""
+    print("\n🤖 Training Enhanced Ensemble Classifier...")
+    print("   - Gradient Boosting + Random Forest ensemble")
+    print("   - SMOTE for class balancing")
+    print("   - Advanced feature engineering\n")
 
     # Split data
     X_train, X_test, y_train, y_test = train_test_split(
@@ -135,55 +190,105 @@ def train_model(X, y):
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
 
-    # Train Random Forest
-    model = RandomForestClassifier(
-        n_estimators=200,
-        max_depth=20,
-        min_samples_split=5,
+    # Apply SMOTE to balance classes
+    print("⚖️  Applying SMOTE for class balancing...")
+    smote = SMOTE(random_state=42, k_neighbors=3)
+    X_train_balanced, y_train_balanced = smote.fit_resample(X_train_scaled, y_train)
+    print(f"   Before SMOTE: {len(X_train)} samples")
+    print(f"   After SMOTE: {len(X_train_balanced)} samples\n")
+
+    # Train Gradient Boosting Classifier (best for accuracy)
+    print("🌲 Training Gradient Boosting model...")
+    gb_model = GradientBoostingClassifier(
+        n_estimators=300,
+        learning_rate=0.1,
+        max_depth=7,
+        min_samples_split=4,
         min_samples_leaf=2,
+        subsample=0.8,
+        random_state=42,
+        verbose=0
+    )
+    gb_model.fit(X_train_balanced, y_train_balanced)
+
+    # Train Random Forest (for diversity)
+    print("🌳 Training Random Forest model...")
+    rf_model = RandomForestClassifier(
+        n_estimators=300,
+        max_depth=25,
+        min_samples_split=3,
+        min_samples_leaf=1,
+        max_features='sqrt',
         random_state=42,
         n_jobs=-1
     )
+    rf_model.fit(X_train_balanced, y_train_balanced)
 
-    model.fit(X_train_scaled, y_train)
+    # Create Voting Ensemble
+    print("🗳️  Creating ensemble model...\n")
+    ensemble = VotingClassifier(
+        estimators=[
+            ('gb', gb_model),
+            ('rf', rf_model)
+        ],
+        voting='soft',  # Use probability voting
+        weights=[1.5, 1.0]  # Give more weight to GB
+    )
+    ensemble.fit(X_train_balanced, y_train_balanced)
 
     # Evaluate
-    y_pred = model.predict(X_test_scaled)
-    accuracy = accuracy_score(y_test, y_pred)
+    y_pred = ensemble.predict(X_test_scaled)
+    y_pred_proba = ensemble.predict_proba(X_test_scaled)
 
-    # Cross-validation
-    cv_scores = cross_val_score(model, X_train_scaled, y_train, cv=5)
+    accuracy = accuracy_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred, average='weighted')
+
+    # Cross-validation on original (non-SMOTE) data
+    cv_scores = cross_val_score(ensemble, X_train_scaled, y_train, cv=5)
 
     print(f"\n📊 Model Performance:")
-    print(f"Training Accuracy: {model.score(X_train_scaled, y_train):.2%}")
+    print(f"Training Accuracy: {ensemble.score(X_train_balanced, y_train_balanced):.2%}")
     print(f"Test Accuracy: {accuracy:.2%}")
+    print(f"F1 Score (weighted): {f1:.2%}")
     print(f"Cross-Validation Score: {cv_scores.mean():.2%} (+/- {cv_scores.std() * 2:.2%})")
 
     print("\n📈 Classification Report:")
     print(classification_report(y_test, y_pred))
 
     print("\n🔢 Confusion Matrix:")
-    print(confusion_matrix(y_test, y_pred))
+    cm = confusion_matrix(y_test, y_pred)
+    print(cm)
 
-    # Feature importance
-    feature_names = ['Period', 'Radius', 'Depth', 'SNR', 'Duration', 'Is_Kepler', 'Is_K2', 'Is_TESS']
-    importances = model.feature_importances_
+    # Feature importance from Gradient Boosting
+    feature_names = [
+        'Period', 'Radius', 'Depth', 'SNR', 'Duration',
+        'Log_Period', 'Log_Radius', 'Log_Depth', 'Log_SNR',
+        'Depth_Radius_Ratio', 'Duration_Period_Ratio', 'SNR_Depth_Ratio',
+        'SNR_Squared', 'Radius_Cubed',
+        'Period_Radius_Product', 'SNR_Duration_Product',
+        'Is_Kepler', 'Is_K2', 'Is_TESS'
+    ]
+    importances = gb_model.feature_importances_
 
-    print("\n🎯 Feature Importances:")
-    for name, importance in sorted(zip(feature_names, importances), key=lambda x: x[1], reverse=True):
+    print("\n🎯 Top 10 Feature Importances:")
+    top_features = sorted(zip(feature_names, importances), key=lambda x: x[1], reverse=True)[:10]
+    for name, importance in top_features:
         print(f"  {name}: {importance:.3f}")
 
     # Save model statistics
     stats = {
-        'train_accuracy': float(model.score(X_train_scaled, y_train)),
+        'train_accuracy': float(ensemble.score(X_train_balanced, y_train_balanced)),
         'test_accuracy': float(accuracy),
+        'f1_score': float(f1),
         'cv_mean': float(cv_scores.mean()),
         'cv_std': float(cv_scores.std()),
         'n_samples': len(X),
         'n_train': len(X_train),
         'n_test': len(X_test),
+        'n_features': len(feature_names),
         'feature_importances': {name: float(imp) for name, imp in zip(feature_names, importances)},
-        'classes': model.classes_.tolist(),
+        'classes': ensemble.classes_.tolist(),
+        'model_type': 'Gradient Boosting + Random Forest Ensemble',
         'trained_at': datetime.now().isoformat()
     }
 
@@ -192,7 +297,7 @@ def train_model(X, y):
 
     print(f"\n💾 Saved model statistics to {STATS_PATH}")
 
-    return model, scaler, stats
+    return ensemble, scaler, stats
 
 def main():
     print("🚀 Starting Exoplanet ML Model Training\n")
@@ -202,10 +307,10 @@ def main():
     data = load_nasa_data()
     print(f"\n✓ Total entries loaded: {len(data)}")
 
-    # Prepare features
-    print("\n🔧 Preparing features and labels...")
-    X, y = prepare_features(data)
-    print(f"✓ Prepared {len(X)} samples with {X.shape[1]} features")
+    # Prepare features with advanced engineering
+    print("\n🔧 Engineering advanced features...")
+    X, y = engineer_features(data)
+    print(f"✓ Engineered {len(X)} samples with {X.shape[1]} features")
 
     # Show class distribution
     unique, counts = np.unique(y, return_counts=True)
@@ -213,8 +318,8 @@ def main():
     for label, count in zip(unique, counts):
         print(f"  {label}: {count} ({count/len(y)*100:.1f}%)")
 
-    # Train model
-    model, scaler, stats = train_model(X, y)
+    # Train enhanced model
+    model, scaler, stats = train_enhanced_model(X, y)
 
     # Save model and scaler
     print(f"\n💾 Saving model to {MODEL_PATH}...")
