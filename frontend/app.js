@@ -34,8 +34,24 @@ function setupEventListeners() {
     // File Upload
     const fileInput = document.getElementById('lightCurveFile');
     const uploadArea = document.getElementById('uploadArea');
+    const selectFilesBtn = document.getElementById('selectFilesBtn');
+    const selectFolderBtn = document.getElementById('selectFolderBtn');
 
-    uploadArea.addEventListener('click', () => fileInput.click());
+    // Separate handlers for files and folders
+    selectFilesBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        fileInput.removeAttribute('webkitdirectory');
+        fileInput.removeAttribute('directory');
+        fileInput.click();
+    });
+
+    selectFolderBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        fileInput.setAttribute('webkitdirectory', '');
+        fileInput.setAttribute('directory', '');
+        fileInput.click();
+    });
+
     fileInput.addEventListener('change', handleFileSelect);
 
     // Remove Files

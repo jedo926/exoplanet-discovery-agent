@@ -371,6 +371,13 @@ body {
     color: var(--text-muted);
 }
 
+.upload-options {
+    display: flex;
+    gap: var(--spacing-md);
+    margin: var(--spacing-md) 0;
+    justify-content: center;
+}
+
 .file-selected {
     display: flex;
     justify-content: space-between;
