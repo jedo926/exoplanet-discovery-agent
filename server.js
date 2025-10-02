@@ -14,6 +14,84 @@ const {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Helper function to convert JSON to CSV
+function convertJsonToCSV(data) {
+  // Handle array of objects
+  if (Array.isArray(data)) {
+    if (data.length === 0) throw new Error('Empty JSON array');
+
+    const headers = Object.keys(data[0]);
+    const rows = data.map(obj => headers.map(h => obj[h] ?? '').join(','));
+    return [headers.join(','), ...rows].join('\n');
+  }
+
+  // Handle nested object with arrays
+  const findArrays = (obj, path = []) => {
+    for (const [key, value] of Object.entries(obj)) {
+      if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object') {
+        return value;
+      }
+      if (typeof value === 'object' && value !== null) {
+        const result = findArrays(value, [...path, key]);
+        if (result) return result;
+      }
+    }
+    return null;
+  };
+
+  const arrayData = findArrays(data);
+  if (arrayData) {
+    const headers = Object.keys(arrayData[0]);
+    const rows = arrayData.map(obj => headers.map(h => obj[h] ?? '').join(','));
+    return [headers.join(','), ...rows].join('\n');
+  }
+
+  throw new Error('Could not find tabular data in JSON');
+}
+
+// Helper function to convert XML to CSV
+function convertXmlToCSV(xmlObj) {
+  // Try to find array-like structures in XML
+  const findArrays = (obj) => {
+    if (Array.isArray(obj)) return obj;
+
+    for (const value of Object.values(obj)) {
+      if (Array.isArray(value) && value.length > 0) {
+        return value;
+      }
+      if (typeof value === 'object' && value !== null) {
+        const result = findArrays(value);
+        if (result) return result;
+      }
+    }
+    return null;
+  };
+
+  const arrayData = findArrays(xmlObj);
+  if (!arrayData) throw new Error('Could not find tabular data in XML');
+
+  // Flatten nested objects
+  const flattenObject = (obj, prefix = '') => {
+    const flattened = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (Array.isArray(value)) {
+        flattened[prefix + key] = value[0];
+      } else if (typeof value === 'object' && value !== null) {
+        Object.assign(flattened, flattenObject(value, prefix + key + '_'));
+      } else {
+        flattened[prefix + key] = value;
+      }
+    }
+    return flattened;
+  };
+
+  const flatData = arrayData.map(item => flattenObject(item));
+  const headers = Object.keys(flatData[0]);
+  const rows = flatData.map(obj => headers.map(h => obj[h] ?? '').join(','));
+
+  return [headers.join(','), ...rows].join('\n');
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -36,13 +114,14 @@ const upload = multer({
   storage: storage,
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (ext === '.csv' || ext === '.tsv' || ext === '.txt') {
+    const allowed = ['.csv', '.tsv', '.txt', '.fits', '.fit', '.dat', '.lc', '.xls', '.xlsx', '.xml', '.json', '.tbl', '.ascii'];
+    if (allowed.includes(ext)) {
       cb(null, true);
     } else {
-      cb(new Error('Only CSV, TSV, and TXT files are allowed'));
+      cb(new Error('File format not supported. Accepted: CSV, TSV, TXT, FITS, DAT, LC, XLS, XLSX, XML, JSON, TBL, ASCII'));
     }
   },
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
 });
 
 // Routes
@@ -68,9 +147,72 @@ app.post('/api/analyze', upload.single('file'), async (req, res) => {
     }
 
     const ticId = req.body.ticId || null;
+    let fileContent;
 
-    // Read uploaded file
-    const fileContent = await fs.readFile(req.file.path, 'utf-8');
+    // Check file format and convert to CSV
+    const filename = req.file.originalname.toLowerCase();
+    const isFits = filename.match(/\.(fits|fit)$/);
+    const isExcel = filename.match(/\.(xls|xlsx)$/);
+    const isXml = filename.match(/\.xml$/);
+    const isJson = filename.match(/\.json$/);
+
+    if (isFits) {
+      // Convert FITS to CSV using Python script
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      const execAsync = promisify(exec);
+
+      try {
+        const scriptPath = path.join(__dirname, 'ml_model/convert_fits.py');
+        const { stdout } = await execAsync(`python3 "${scriptPath}" "${req.file.path}"`);
+        fileContent = stdout;
+        console.log(`Converted FITS file: ${req.file.originalname}`);
+      } catch (conversionError) {
+        throw new Error(`FITS conversion failed: ${conversionError.message}`);
+      }
+    } else if (isExcel) {
+      // Convert Excel to CSV using xlsx library
+      const XLSX = require('xlsx');
+
+      try {
+        const workbook = XLSX.readFile(req.file.path);
+        const sheetName = workbook.SheetNames[0]; // Use first sheet
+        const worksheet = workbook.Sheets[sheetName];
+        fileContent = XLSX.utils.sheet_to_csv(worksheet);
+        console.log(`Converted Excel file: ${req.file.originalname}`);
+      } catch (conversionError) {
+        throw new Error(`Excel conversion failed: ${conversionError.message}`);
+      }
+    } else if (isXml) {
+      // Convert XML to CSV - try to extract tabular data
+      const xml2js = require('xml2js');
+      const parser = new xml2js.Parser();
+
+      try {
+        const xmlContent = await fs.readFile(req.file.path, 'utf-8');
+        const result = await parser.parseStringPromise(xmlContent);
+
+        // Try to find array-like structures and convert to CSV
+        fileContent = convertXmlToCSV(result);
+        console.log(`Converted XML file: ${req.file.originalname}`);
+      } catch (conversionError) {
+        throw new Error(`XML parsing failed: ${conversionError.message}`);
+      }
+    } else if (isJson) {
+      // Convert JSON to CSV
+      try {
+        const jsonContent = await fs.readFile(req.file.path, 'utf-8');
+        const data = JSON.parse(jsonContent);
+
+        fileContent = convertJsonToCSV(data);
+        console.log(`Converted JSON file: ${req.file.originalname}`);
+      } catch (conversionError) {
+        throw new Error(`JSON parsing failed: ${conversionError.message}`);
+      }
+    } else {
+      // Read as text file (CSV, TXT, etc.)
+      fileContent = await fs.readFile(req.file.path, 'utf-8');
+    }
 
     // Analyze the light curve
     const result = await analyzeLightCurve(fileContent, ticId);
@@ -78,16 +220,10 @@ app.post('/api/analyze', upload.single('file'), async (req, res) => {
     // Clean up uploaded file
     await fs.unlink(req.file.path).catch(err => console.error('Error deleting file:', err));
 
+    // Return the new multi-planet format
     res.json({
       success: true,
-      result: {
-        classification: result.classification,
-        probability: result.probability,
-        reasoning: result.reasoning,
-        features: result.features,
-        plotData: result.plotData,
-        stored: result.stored
-      }
+      result: result  // Now returns: { planets: [], totalDetected, storedCount, hostStar, hostStarInfo, message }
     });
   } catch (error) {
     console.error('Analysis error:', error);

@@ -142,19 +142,19 @@ function handleFileSelect(e) {
     if (files.length === 0) return;
 
     // Validate each file
-    const validExtensions = /\.(csv|txt|dat|tsv|fits|fit|lc|tbl|ascii)$/i;
+    const validExtensions = /\.(csv|txt|dat|tsv|fits|fit|lc|tbl|ascii|xls|xlsx|xml|json)$/i;
     const validFiles = [];
 
     for (const file of files) {
         // Check file type
         if (!file.name.match(validExtensions)) {
-            alert(`Skipping ${file.name}: Invalid file format.\nSupported: CSV, TXT, DAT, TSV, FITS, LC, TBL, ASCII`);
+            alert(`Skipping ${file.name}: Invalid file format.\nSupported: CSV, TXT, DAT, TSV, FITS, LC, TBL, ASCII, XLS, XLSX, XML, JSON`);
             continue;
         }
 
-        // Check file size (10MB max)
-        if (file.size > 10 * 1024 * 1024) {
-            alert(`Skipping ${file.name}: File size must be less than 10MB`);
+        // Check file size (50MB max for FITS/XML)
+        if (file.size > 50 * 1024 * 1024) {
+            alert(`Skipping ${file.name}: File size must be less than 50MB`);
             continue;
         }
 
@@ -263,6 +263,7 @@ async function analyzeLightCurve() {
     let successCount = 0;
     let failCount = 0;
     let totalPlanetsDetected = 0;
+    let lastSuccessfulResult = null;
 
     try {
         for (let i = 0; i < currentFiles.length; i++) {
@@ -274,9 +275,10 @@ async function analyzeLightCurve() {
                 const formData = new FormData();
                 formData.append('file', file);
 
-                const planetId = document.getElementById('planetId').value.trim();
-                if (planetId) {
-                    formData.append('ticId', `${planetId}-${i + 1}`);
+                // Try to extract TIC ID from filename (e.g., TESS_141810080_lightcurve.csv or TIC_12345.csv)
+                const ticMatch = file.name.match(/(?:TESS_|TIC_|TIC)(\d+)/i);
+                if (ticMatch) {
+                    formData.append('ticId', ticMatch[1]);
                 }
 
                 // Send request
@@ -291,16 +293,14 @@ async function analyzeLightCurve() {
                     throw new Error(data.error || 'Analysis failed');
                 }
 
+                console.log('Analysis result:', data.result);
+
                 successCount++;
 
                 // Count total planets detected across all files
                 if (data.result.planets && data.result.planets.length > 0) {
                     totalPlanetsDetected += data.result.planets.length;
-                }
-
-                // Display results for single file
-                if (currentFiles.length === 1) {
-                    displayMultiPlanetResults(data.result);
+                    lastSuccessfulResult = data.result;
                 }
 
             } catch (error) {
@@ -309,22 +309,26 @@ async function analyzeLightCurve() {
             }
         }
 
-        // Show summary for multiple files
-        if (currentFiles.length > 1) {
-            progressMessage.textContent = `Complete! Found ${totalPlanetsDetected} planet(s) in ${successCount} file(s)${failCount > 0 ? `, ${failCount} failed` : ''}. Navigating to Discoveries...`;
-
-            // Navigate to Discoveries page after 2 seconds
-            setTimeout(() => {
-                document.getElementById('analysisProgress').classList.add('hidden');
-                handleNavigation('discoveries');
-            }, 2000);
+        // Show summary message
+        if (totalPlanetsDetected > 0) {
+            progressMessage.textContent = currentFiles.length > 1
+                ? `Complete! Found ${totalPlanetsDetected} planet(s) in ${successCount} file(s)${failCount > 0 ? `, ${failCount} failed` : ''}.`
+                : `Analysis complete! Found ${totalPlanetsDetected} planet(s).`;
         } else {
-            // For single file, show results for 3 seconds then navigate to discoveries
-            progressMessage.textContent = `Analysis complete! Found ${totalPlanetsDetected} planet(s). Navigating to Discoveries...`;
-            setTimeout(() => {
-                handleNavigation('discoveries');
-            }, 3000);
+            progressMessage.textContent = currentFiles.length > 1
+                ? `Complete! No planets detected in ${successCount} file(s)${failCount > 0 ? `, ${failCount} failed` : ''}.`
+                : `Analysis complete! No planets detected.`;
         }
+
+        // Hide progress after short delay, then display results
+        setTimeout(() => {
+            document.getElementById('analysisProgress').classList.add('hidden');
+
+            // Display results if we found any planets
+            if (lastSuccessfulResult) {
+                displayMultiPlanetResults(lastSuccessfulResult);
+            }
+        }, 1500);
 
         // Reload planets
         await loadPlanets();
@@ -486,7 +490,6 @@ function displayResults(result) {
 function resetAnalysis() {
     document.getElementById('resultsSection').classList.add('hidden');
     handleFileRemove();
-    document.getElementById('planetId').value = '';
 }
 
 /**
@@ -572,7 +575,7 @@ function renderPlanetsTable() {
     const endIdx = startIdx + itemsPerPage;
     const pageItems = filteredPlanets.slice(startIdx, endIdx);
 
-    tbody.innerHTML = pageItems.map(planet => `
+    tbody.innerHTML = pageItems.map((planet, index) => `
         <tr>
             <td><strong>${escapeHtml(planet.planet_name || 'Unknown')}</strong></td>
             <td>${escapeHtml(planet.host_star || 'N/A')}</td>
@@ -676,4 +679,133 @@ function getClassBadge(classification) {
     if (classification === 'Confirmed Planet') return 'badge-confirmed';
     if (classification === 'Candidate Planet') return 'badge-candidate';
     return 'badge-false';
+}
+
+/**
+ * View Planet Details - Shows modal with full analysis
+ */
+function viewPlanetDetails(planetIndex) {
+    const planet = filteredPlanets[planetIndex];
+    if (!planet) return;
+
+    // Set modal title
+    document.getElementById('modalPlanetName').textContent = planet.planet_name || 'Planet Details';
+
+    // Populate feature cards
+    document.getElementById('modalFeaturePeriod').textContent = planet.period ? planet.period.toFixed(3) : 'N/A';
+    document.getElementById('modalFeatureRadius').textContent = planet.radius ? planet.radius.toFixed(2) : 'N/A';
+    document.getElementById('modalFeatureDepth').textContent = planet.depth ? planet.depth.toFixed(2) : 'N/A';
+    document.getElementById('modalFeatureSNR').textContent = planet.snr ? planet.snr.toFixed(2) : 'N/A';
+    document.getElementById('modalFeatureDuration').textContent = planet.duration ? planet.duration.toFixed(2) : 'N/A';
+    document.getElementById('modalFeatureDataPoints').textContent = planet.data_points || 'N/A';
+
+    // Set classification banner
+    const banner = document.getElementById('modalClassificationBanner');
+    const label = document.getElementById('modalClassificationLabel');
+    const description = document.getElementById('modalClassificationDescription');
+    const confidence = document.getElementById('modalConfidenceBadge');
+
+    if (planet.classification === 'Confirmed Planet') {
+        banner.className = 'result-banner success';
+        label.textContent = 'Exoplanet Detected!';
+        description.textContent = `${planet.planet_name} orbiting ${planet.host_star}`;
+    } else if (planet.classification === 'Candidate Planet') {
+        banner.className = 'result-banner warning';
+        label.textContent = 'Candidate Planet';
+        description.textContent = `Potential exoplanet ${planet.planet_name} requires further analysis`;
+    } else {
+        banner.className = 'result-banner error';
+        label.textContent = 'No Planet Detected';
+        description.textContent = 'Signal classified as likely false positive';
+    }
+
+    confidence.textContent = planet.probability ? `${(planet.probability * 100).toFixed(1)}% confidence` : 'N/A';
+
+    // Set AI insights
+    const aiInsights = document.getElementById('modalAiInsightsText');
+    aiInsights.textContent = `Analysis of ${planet.planet_name}: This ${planet.classification.toLowerCase()} shows an orbital period of ${planet.period ? planet.period.toFixed(2) : 'N/A'} days with a transit depth of ${planet.depth ? planet.depth.toFixed(0) : 'N/A'} ppm. The estimated planetary radius is ${planet.radius ? planet.radius.toFixed(2) : 'N/A'} Earth radii with a signal-to-noise ratio of ${planet.snr ? planet.snr.toFixed(2) : 'N/A'}σ. Discovered on ${formatDate(planet.discovery_date)}.`;
+
+    // Generate phase-folded plot
+    generatePhasePlot(planet, 'modalPhasePlot');
+
+    // Show modal
+    document.getElementById('planetDetailsModal').classList.add('active');
+}
+
+/**
+ * Close Planet Details Modal
+ */
+function closePlanetDetails() {
+    document.getElementById('planetDetailsModal').classList.remove('active');
+}
+
+/**
+ * Generate Phase-Folded Light Curve Plot
+ */
+function generatePhasePlot(planet, plotElementId) {
+    if (!planet.period) {
+        document.getElementById(plotElementId).innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No period data available for phase plot</p>';
+        return;
+    }
+
+    // Generate synthetic phase-folded data for visualization
+    const numPoints = 200;
+    const phase = [];
+    const flux = [];
+
+    for (let i = 0; i < numPoints; i++) {
+        const p = (i / numPoints) - 0.5; // Phase from -0.5 to 0.5
+        phase.push(p);
+
+        // Simulate transit shape
+        const transitDepth = (planet.depth || 1000) / 1e6; // Convert ppm to fraction
+        const transitWidth = 0.05; // Transit width in phase
+
+        if (Math.abs(p) < transitWidth) {
+            // Transit dip (box-shaped)
+            flux.push(1 - transitDepth + Math.random() * 0.0002 - 0.0001);
+        } else {
+            // Out of transit
+            flux.push(1 + Math.random() * 0.0002 - 0.0001);
+        }
+    }
+
+    const trace = {
+        x: phase,
+        y: flux,
+        mode: 'markers',
+        type: 'scatter',
+        marker: {
+            size: 4,
+            color: '#60a5fa',
+            opacity: 0.6
+        },
+        name: 'Flux'
+    };
+
+    const layout = {
+        title: '',
+        xaxis: {
+            title: 'Orbital Phase',
+            gridcolor: '#2d3748',
+            zerolinecolor: '#4a5568'
+        },
+        yaxis: {
+            title: 'Normalized Flux',
+            gridcolor: '#2d3748',
+            zerolinecolor: '#4a5568'
+        },
+        plot_bgcolor: '#1a202c',
+        paper_bgcolor: 'transparent',
+        font: { color: '#e2e8f0' },
+        margin: { t: 30, r: 30, b: 50, l: 60 },
+        hovermode: 'closest'
+    };
+
+    const config = {
+        responsive: true,
+        displayModeBar: false
+    };
+
+    Plotly.newPlot(plotElementId, [trace], layout, config);
 }
