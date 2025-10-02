@@ -814,8 +814,10 @@ async function analyzeLightCurve(csvContent, ticId = null) {
 
       if (features.snr > 3 && aiResult.classification === 'False Positive') {
         finalClassification = 'Candidate Planet';
-        finalProbability = Math.max(0.6, aiResult.probability);
-        console.log(`Overriding ML classification: BLS SNR=${features.snr.toFixed(2)} suggests planet candidate`);
+        // Use SNR-based confidence: higher SNR = higher confidence (cap at 95%)
+        const snrConfidence = Math.min(0.95, 0.5 + (features.snr - 3) * 0.08);
+        finalProbability = Math.max(snrConfidence, aiResult.probability);
+        console.log(`Overriding ML classification: BLS SNR=${features.snr.toFixed(2)} suggests planet candidate (confidence: ${(finalProbability*100).toFixed(1)}%)`);
       }
 
       // Generate AI explanation for users
@@ -829,7 +831,11 @@ async function analyzeLightCurve(csvContent, ticId = null) {
       console.log(`Planet ${i+1}: Classification=${finalClassification}, Probability=${finalProbability.toFixed(2)}, Period=${features.orbital_period.toFixed(2)}d`);
 
       if (finalClassification !== 'False Positive' && finalProbability > 0.3) {  // Lowered threshold from 0.5 to 0.3
-        const planetName = ticId ? `TIC-${ticId}-${String.fromCharCode(98 + i)}` : `Planet-${Date.now()}-${i + 1}`;
+        // Generate consistent planet name based on host star + period (avoid duplicates on re-run)
+        const periodHash = Math.round(features.orbital_period * 1000); // Hash based on period
+        const planetName = ticId
+          ? `TIC-${ticId}-${String.fromCharCode(98 + i)}`
+          : `${hostStarName}-${periodHash}-${String.fromCharCode(98 + i)}`;
 
         // Check for duplicates by name, host star, and orbital period
         const exists = await planetExists(planetName, hostStarName, features.orbital_period);
