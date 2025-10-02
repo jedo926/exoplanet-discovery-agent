@@ -30,6 +30,3 @@ Thumbs.db
 # Build
 dist/
 build/
-
-# ML Models (too large for GitHub)
-ml_model/*.pkl

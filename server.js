@@ -146,7 +146,7 @@ app.post('/api/analyze', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const ticId = req.body.ticId || null;
+    let ticId = req.body.ticId || null;
     let fileContent;
 
     // Check file format and convert to CSV
@@ -212,6 +212,20 @@ app.post('/api/analyze', upload.single('file'), async (req, res) => {
     } else {
       // Read as text file (CSV, TXT, etc.)
       fileContent = await fs.readFile(req.file.path, 'utf-8');
+    }
+
+    // Try to extract TIC ID from CSV headers/comments if not already set
+    if (!ticId && fileContent) {
+      const lines = fileContent.split('\n').slice(0, 50); // Check first 50 lines
+      for (const line of lines) {
+        // Look for TIC ID in comments like: # TIC ID: 50365310 or TICID=50365310
+        const ticMatch = line.match(/(?:TIC\s*ID|TICID|TIC)[\s:=]+(\d+)/i);
+        if (ticMatch) {
+          ticId = ticMatch[1];
+          console.log(`Extracted TIC ID from file metadata: ${ticId}`);
+          break;
+        }
+      }
     }
 
     // Analyze the light curve

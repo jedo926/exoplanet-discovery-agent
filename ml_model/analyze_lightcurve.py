@@ -149,6 +149,13 @@ def analyze_lightcurve(csv_path):
         # Remove outliers - but be conservative to preserve transits
         lc = lc.remove_outliers(sigma=10)
 
+        # Downsample large datasets for speed (only if >20k points)
+        if len(lc.time) > 20000:
+            print(f"Downsampling {len(lc.time)} → 20k points for speed", file=sys.stderr)
+            step = len(lc.time) // 20000 + 1
+            lc = lc[::step]
+            print(f"Using {len(lc.time)} points", file=sys.stderr)
+
         # Detect multiple planets (up to 10)
         planets = []
         lc_work = lc.copy()
@@ -156,18 +163,18 @@ def analyze_lightcurve(csv_path):
         # Determine period search range based on data span
         time_span = float(times.max() - times.min())
 
-        # If we have long-baseline data (>300 days), search wider periods
+        # Balanced speed and accuracy
         if time_span > 300:
             # For long baseline: search 0.5 to 1/3 of time span (ensure multiple transits)
             max_period = min(time_span / 3.0, 500)  # Cap at 500 days
-            period_grid = np.linspace(0.5, max_period, 8000)
+            period_grid = np.linspace(0.5, max_period, 2000)
             print(f"Long baseline detected ({time_span:.1f} days). Searching periods up to {max_period:.1f} days", file=sys.stderr)
         else:
             # Standard short-period search (0.5-50 days)
-            period_grid = np.linspace(0.5, 50, 5000)
+            period_grid = np.linspace(0.5, 50, 1500)
             print(f"Standard search: 0.5-50 days (data span: {time_span:.1f} days)", file=sys.stderr)
 
-        for i in range(10):  # Try to find up to 10 planets
+        for i in range(5):  # Max 5 planets
             # Run BLS on current light curve
             bls = lc_work.to_periodogram(method='bls', period=period_grid)
 

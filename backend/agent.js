@@ -9,14 +9,14 @@ const path = require('path');
 const execAsync = promisify(exec);
 
 // Configuration
-const SUPABASE_URL = process.env.SUPABASE_URL || 'your-supabase-url-here';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || 'your-supabase-key-here';
+const SUPABASE_URL = process.env.SUPABASE_URL || null;
+const SUPABASE_KEY = process.env.SUPABASE_KEY || null;
 
-// Initialize Supabase client
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+// Initialize Supabase client (only if credentials provided)
+const supabase = (SUPABASE_URL && SUPABASE_KEY) ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 // ML Model API
-const ML_API_URL = 'http://localhost:5001';
+const ML_API_URL = process.env.ML_API_URL || 'http://localhost:5001';
 
 // NASA Exoplanet Archive API
 const NASA_EXOPLANET_API = 'https://exoplanetarchive.ipac.caltech.edu/TAP/sync';
@@ -428,7 +428,7 @@ async function extractFeaturesWithPython(csvPath) {
     console.log(`Temp CSV first 5 lines:\n${lines.join('\n')}`);
 
     const { stdout, stderr } = await execAsync(`python3 "${scriptPath}" "${csvPath}"`, {
-      timeout: 60000
+      timeout: 120000
     });
 
     if (stderr && !stderr.includes('UserWarning')) {
@@ -598,6 +598,10 @@ async function classifyWithML(features, dataset) {
  * Store planet in Supabase
  */
 async function storePlanet(planetData) {
+  if (!supabase) {
+    console.log('Supabase not configured - skipping database storage');
+    return { success: true, data: planetData };
+  }
   try {
     const { data, error } = await supabase
       .from('exoplanets')
@@ -618,6 +622,9 @@ async function storePlanet(planetData) {
  * Get all planets from Supabase
  */
 async function getAllPlanets() {
+  if (!supabase) {
+    return [];
+  }
   try {
     const { data, error } = await supabase
       .from('exoplanets')
@@ -656,6 +663,9 @@ async function getAllPlanets() {
  * Check if planet already exists in database
  */
 async function planetExists(planetName, hostStar = null, period = null) {
+  if (!supabase) {
+    return false;
+  }
   try {
     // Check by exact name first
     const { data: nameMatch } = await supabase

@@ -1,4 +1,14 @@
 services:
+  # Python ML API (must be first so main app can reference it)
+  - type: web
+    name: exoplanet-ml-api
+    env: python
+    buildCommand: pip install -r ml_model/requirements.txt
+    startCommand: cd ml_model && python3 predict_api.py
+    envVars:
+      - key: PORT
+        value: 5001
+
   # Node.js backend + frontend
   - type: web
     name: exoplanet-discovery
@@ -10,18 +20,13 @@ services:
         value: production
       - key: PORT
         value: 3000
+      - key: ML_API_URL
+        fromService:
+          type: web
+          name: exoplanet-ml-api
+          property: host
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_KEY
         sync: false
     healthCheckPath: /api/health
-
-  # Python ML API
-  - type: web
-    name: exoplanet-ml-api
-    env: python
-    buildCommand: pip install -r ml_model/requirements.txt
-    startCommand: cd ml_model && python3 predict_api.py
-    envVars:
-      - key: PORT
-        value: 5001

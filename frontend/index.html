@@ -101,7 +101,8 @@
             <section class="card">
                 <div class="card-header">
                     <h2>Upload Light Curve Data</h2>
-                    <p class="card-subtitle">Multiple formats supported: TESS, Kepler, K2, FITS, and standard text files</p>
+                    <p class="card-subtitle">Multiple formats supported: TESS, Kepler, K2, FITS, and standard text files<br>
+                    <small style="opacity: 0.8; font-size: 0.9em; display: inline-block; margin-top: 5px;">💡 Tip: Include TIC ID in filename (e.g., <code>TIC_12345_lightcurve.csv</code>) or enter it in the field below for host star information</small></p>
                 </div>
                 <div class="card-body">
                     <div class="upload-area" id="uploadArea">
@@ -141,6 +142,22 @@
                             </button>
                         </div>
                         <div class="files-list" id="filesList"></div>
+                    </div>
+
+                    <!-- TIC ID Input -->
+                    <div style="margin-top: 20px; margin-bottom: 20px;">
+                        <label for="ticIdInput" style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-primary, #e2e8f0);">
+                            TIC ID (Optional)
+                        </label>
+                        <input
+                            type="text"
+                            id="ticIdInput"
+                            placeholder="e.g., 50365310 or TIC 50365310"
+                            style="width: 100%; max-width: 400px; padding: 10px 14px; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 8px; background: rgba(15, 23, 42, 0.6); color: #e2e8f0; font-size: 14px; font-family: 'Space Mono', monospace;"
+                        />
+                        <small style="display: block; margin-top: 6px; opacity: 0.7; font-size: 0.85em;">
+                            Enter the TESS Input Catalog ID to fetch host star information
+                        </small>
                     </div>
 
                     <button id="analyzeBtn" class="btn btn-primary" disabled>
