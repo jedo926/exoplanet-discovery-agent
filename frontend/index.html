@@ -104,7 +104,7 @@
                 </div>
                 <div class="card-body">
                     <div class="upload-area" id="uploadArea">
-                        <input type="file" id="lightCurveFile" accept=".csv,.txt,.dat,.tsv,.fits,.fit,.lc,.tbl,.ascii" multiple webkitdirectory directory hidden>
+                        <input type="file" id="lightCurveFile" accept=".csv,.txt,.dat,.tsv,.fits,.fit,.lc,.tbl,.ascii,.xls,.xlsx,.xml,.json" multiple webkitdirectory directory hidden>
                         <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                             <polyline points="17 8 12 3 7 8"/>
@@ -126,7 +126,7 @@
                                 Select Folder
                             </button>
                         </div>
-                        <span class="upload-hint">Supported: CSV, TXT, DAT, TSV, FITS, LC, TBL, ASCII (max 10MB per file)</span>
+                        <span class="upload-hint">Supported: CSV, TXT, DAT, TSV, FITS, LC, TBL, ASCII, XLS, XLSX, XML, JSON (max 50MB per file)</span>
                     </div>
 
                     <div class="files-selected hidden" id="filesSelected">
@@ -140,11 +140,6 @@
                             </button>
                         </div>
                         <div class="files-list" id="filesList"></div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="planetId">Planet Identifier (Optional)</label>
-                        <input type="text" id="planetId" class="form-input" placeholder="e.g., TIC-12345, KOI-789">
                     </div>
 
                     <button id="analyzeBtn" class="btn btn-primary" disabled>
@@ -277,7 +272,7 @@
                             </thead>
                             <tbody id="planetsTableBody">
                                 <tr>
-                                    <td colspan="8" class="loading-cell">
+                                    <td colspan="9" class="loading-cell">
                                         <div class="loading-spinner"></div>
                                         <span>Loading discoveries...</span>
                                     </td>
@@ -424,23 +419,6 @@
                             </div>
                         </div>
 
-                        <h3>Supported File Formats</h3>
-                        <div class="code-block">
-                            <code>time,flux
-0.0,1.0000
-0.1,0.9998
-0.2,0.9985
-...</code>
-                        </div>
-                        <ul class="requirements-list">
-                            <li><strong>Formats:</strong> CSV, TXT, DAT, TSV, FITS, LC, TBL, ASCII</li>
-                            <li><strong>Columns:</strong> time (or TIME/bjd/HJD) and flux (or FLUX/sap_flux/mag)</li>
-                            <li><strong>Time:</strong> Days (BJD, HJD, or relative)</li>
-                            <li><strong>Flux:</strong> Normalized or raw photometry</li>
-                            <li><strong>Sources:</strong> TESS, Kepler, K2, ground-based telescopes, FITS files</li>
-                            <li><strong>Delimiters:</strong> Comma, tab, space, or pipe-separated</li>
-                        </ul>
-
                         <h3>Technical Details</h3>
                         <div class="tech-details">
                             <div class="tech-item">
@@ -461,6 +439,89 @@
             </section>
         </div>
     </main>
+
+    <!-- Planet Details Modal -->
+    <div class="modal" id="planetDetailsModal">
+        <div class="modal-overlay" onclick="closePlanetDetails()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalPlanetName">Planet Details</h2>
+                <button class="modal-close" onclick="closePlanetDetails()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Classification Result -->
+                <div class="result-banner" id="modalClassificationBanner">
+                    <div class="result-icon" id="modalResultIcon"></div>
+                    <div class="result-text">
+                        <h3 id="modalClassificationLabel"></h3>
+                        <p id="modalClassificationDescription"></p>
+                    </div>
+                    <div class="confidence-badge" id="modalConfidenceBadge"></div>
+                </div>
+
+                <!-- AI Insights Section -->
+                <div class="ai-insights" id="modalAiInsights">
+                    <div class="ai-insights-header">
+                        <svg class="ai-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                            <path d="M2 17l10 5 10-5"/>
+                            <path d="M2 12l10 5 10-5"/>
+                        </svg>
+                        <span>AI Explanation</span>
+                    </div>
+                    <p class="ai-insights-text" id="modalAiInsightsText"></p>
+                </div>
+
+                <!-- Feature Grid -->
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <span class="feature-label">Orbital Period</span>
+                        <span class="feature-value" id="modalFeaturePeriod">-</span>
+                        <span class="feature-unit">days</span>
+                    </div>
+                    <div class="feature-card">
+                        <span class="feature-label">Planet Radius</span>
+                        <span class="feature-value" id="modalFeatureRadius">-</span>
+                        <span class="feature-unit">R⊕</span>
+                    </div>
+                    <div class="feature-card">
+                        <span class="feature-label">Transit Depth</span>
+                        <span class="feature-value" id="modalFeatureDepth">-</span>
+                        <span class="feature-unit">ppm</span>
+                    </div>
+                    <div class="feature-card">
+                        <span class="feature-label">Signal-to-Noise</span>
+                        <span class="feature-value" id="modalFeatureSNR">-</span>
+                        <span class="feature-unit">σ</span>
+                    </div>
+                    <div class="feature-card">
+                        <span class="feature-label">Transit Duration</span>
+                        <span class="feature-value" id="modalFeatureDuration">-</span>
+                        <span class="feature-unit">hours</span>
+                    </div>
+                    <div class="feature-card">
+                        <span class="feature-label">Data Points</span>
+                        <span class="feature-value" id="modalFeatureDataPoints">-</span>
+                        <span class="feature-unit">samples</span>
+                    </div>
+                </div>
+
+                <!-- Phase-Folded Plot -->
+                <div class="plot-container">
+                    <div class="plot-header">
+                        <h3>Phase-Folded Light Curve</h3>
+                        <p>Transit signature aligned by orbital period</p>
+                    </div>
+                    <div id="modalPhasePlot" class="plot"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="app.js"></script>
 </body>

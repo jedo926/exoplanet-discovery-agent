@@ -1,25 +1,39 @@
 {
-  "train_accuracy": 0.9209203914308384,
-  "test_accuracy": 0.7966684294024325,
-  "cv_mean": 0.7751258472167564,
-  "cv_std": 0.00999891469293622,
+  "train_accuracy": 0.9904671492425141,
+  "test_accuracy": 0.7784241142252777,
+  "f1_score": 0.7802779630176305,
+  "cv_mean": 0.7752576632122088,
+  "cv_std": 0.009620952317371756,
   "n_samples": 18906,
   "n_train": 15124,
   "n_test": 3782,
+  "n_features": 19,
   "feature_importances": {
-    "Period": 0.2037489436031233,
-    "Radius": 0.26621488396531334,
-    "Depth": 0.2330801658132855,
-    "SNR": 0.08254860044779973,
-    "Duration": 0.104996181741167,
-    "Is_Kepler": 0.03969484452955108,
-    "Is_K2": 0.05004768433893939,
-    "Is_TESS": 0.01966869556082074
+    "Period": 0.04135269283142841,
+    "Radius": 0.08216513961918642,
+    "Depth": 0.028278053214150545,
+    "SNR": 0.0058541491493744905,
+    "Duration": 0.02213609594243336,
+    "Log_Period": 0.028105176207763257,
+    "Log_Radius": 0.061920211471040924,
+    "Log_Depth": 0.19855285505625872,
+    "Log_SNR": 0.020019849371632502,
+    "Depth_Radius_Ratio": 0.12201412147531471,
+    "Duration_Period_Ratio": 0.10921786183845185,
+    "SNR_Depth_Ratio": 0.048103864926698124,
+    "SNR_Squared": 0.006874698761286781,
+    "Radius_Cubed": 0.00019687970102136862,
+    "Period_Radius_Product": 0.05781139229524055,
+    "SNR_Duration_Product": 0.026445249324413948,
+    "Is_Kepler": 0.11997154231528767,
+    "Is_K2": 0.00023429477031807104,
+    "Is_TESS": 0.020745871728698247
   },
   "classes": [
     "Candidate Planet",
     "Confirmed Planet",
     "False Positive"
   ],
-  "trained_at": "2025-10-01T03:23:44.267174"
+  "model_type": "Gradient Boosting + Random Forest Ensemble",
+  "trained_at": "2025-10-01T22:15:59.504133"
 }

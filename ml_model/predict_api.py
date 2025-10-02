@@ -61,21 +61,58 @@ def predict():
     try:
         data = request.json
 
-        # Extract features
-        period = float(data.get('period', 0.0))
-        radius = float(data.get('radius', 0.0))
-        depth = float(data.get('depth', 0.0))
+        # Extract raw features
+        period = float(data.get('period', 0.01))
+        radius = float(data.get('radius', 0.01))
+        depth = float(data.get('depth', 0.01))
         snr = float(data.get('snr', 7.0))
-        duration = float(data.get('duration', 0.0))
+        duration = float(data.get('duration', 0.01))
         dataset = data.get('dataset', '').lower()
 
-        # Create feature vector (must match training format)
+        # Engineer features (must match training format exactly)
+        # Log transforms
+        log_period = np.log10(period + 1e-6)
+        log_radius = np.log10(radius + 1e-6)
+        log_depth = np.log10(depth + 1e-6)
+        log_snr = np.log10(snr + 1e-6)
+
+        # Physical ratios
+        transit_depth_ratio = depth / (radius ** 2 + 1e-6)
+        duration_period_ratio = duration / (period + 1e-6)
+        snr_per_depth = snr / (depth + 1e-6)
+
+        # Statistical transforms
+        snr_squared = snr ** 2
+        radius_cubed = radius ** 3
+
+        # Interactions
+        period_radius_product = period * radius
+        snr_duration_product = snr * duration
+
+        # Create enhanced feature vector
         features = np.array([[
+            # Raw features
             period,
             radius,
             depth,
             snr,
             duration,
+            # Log transforms
+            log_period,
+            log_radius,
+            log_depth,
+            log_snr,
+            # Derived ratios
+            transit_depth_ratio,
+            duration_period_ratio,
+            snr_per_depth,
+            # Statistical transforms
+            snr_squared,
+            radius_cubed,
+            # Interactions
+            period_radius_product,
+            snr_duration_product,
+            # Dataset one-hot encoding
             1.0 if dataset == 'kepler' else 0.0,
             1.0 if dataset == 'k2' else 0.0,
             1.0 if dataset == 'tess' else 0.0
