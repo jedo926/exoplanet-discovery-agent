@@ -57,133 +57,6 @@ exoplanet_discovery_agent_js/
 └── README.md            # This file
 ```
 
-## Quick Start
-
-```bash
-# 1. Install Python dependencies and fetch NASA data
-cd ml_model
-pip3 install -r requirements.txt
-python3 fetch_nasa_data.py  # Downloads ~10MB of NASA data
-python3 train_model.py       # Trains the ML model (~30 seconds)
-
-# 2. Start the ML API
-python3 predict_api.py       # Runs on port 5001
-
-# 3. In a new terminal, install Node.js dependencies
-cd ..
-npm install
-
-# 4. Set up environment variables (see Installation section)
-# Create .env file with your Supabase credentials
-
-# 5. Start the web server
-npm start                     # Runs on port 3000
-
-# 6. Open http://localhost:3000 and upload a light curve!
-```
-
-## Prerequisites
-
-- Node.js (v14 or higher)
-- Python 3.8+ (for ML model)
-- npm
-- Supabase account (free tier works)
-
-## Installation
-
-1. **Clone or navigate to the project directory**:
-   ```bash
-   cd exoplanet_discovery_agent_js
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Set up Supabase**:
-   - Create a free account at [supabase.com](https://supabase.com)
-   - Create a new project
-   - In the SQL Editor, create the exoplanets table:
-
-   ```sql
-   CREATE TABLE exoplanets (
-     id BIGSERIAL PRIMARY KEY,
-     planet_name TEXT UNIQUE NOT NULL,
-     host_star TEXT,
-     period NUMERIC,
-     radius NUMERIC,
-     depth NUMERIC,
-     classification TEXT,
-     probability NUMERIC,
-     discovery_date TIMESTAMP,
-     dataset TEXT,
-     image_url TEXT,
-     created_at TIMESTAMP DEFAULT NOW()
-   );
-
-   -- Create index for fast planet name lookups
-   CREATE INDEX idx_exoplanets_planet_name ON exoplanets(planet_name);
-   ```
-
-4. **Configure environment variables**:
-
-   Create a `.env` file in the project root:
-   ```bash
-   SUPABASE_URL=your-supabase-url
-   SUPABASE_KEY=your-supabase-anon-key
-   PORT=3000
-   ```
-
-5. **Set up the ML model**:
-
-   ```bash
-   cd ml_model
-   pip3 install -r requirements.txt
-
-   # Fetch training data from NASA Exoplanet Archive
-   python3 fetch_nasa_data.py
-
-   # Train the model (creates .pkl files)
-   python3 train_model.py
-   ```
-
-   This fetches data from:
-   - **Kepler**: https://exoplanetarchive.ipac.caltech.edu (cumulative table)
-   - **K2**: https://exoplanetarchive.ipac.caltech.edu (k2pandc table)
-   - **TESS**: https://exoplanetarchive.ipac.caltech.edu (toi table)
-
-## Usage
-
-### Start the ML Model API
-
-First, start the Python ML model server:
-
-```bash
-cd ml_model
-python3 predict_api.py
-```
-
-This will start the Flask API on `http://localhost:5001`.
-
-**Optional: Test the ML model**
-
-```bash
-# In the ml_model directory
-python3 test_model.py
-```
-
-This will test the model with sample exoplanet data (Hot Jupiter, Super-Earth, etc.) and verify it's working correctly.
-
-### Start the Node.js Server
-
-In a new terminal:
-
-```bash
-npm start
-```
-
-The server will start on `http://localhost:3000`.
 
 ### Analyze Light Curves
 
@@ -199,43 +72,6 @@ The server will start on `http://localhost:3000`.
 4. 📈 Phase-folded light curve plot is generated
 5. 💾 If Confirmed or Candidate (>50% confidence), planet is stored in database
 6. ✨ Results are displayed with classification and confidence score
-
-### Retrain the ML Model
-
-If you want to retrain the model with updated data from NASA:
-
-```bash
-cd ml_model
-
-# Fetch latest data from NASA
-python3 fetch_nasa_data.py
-
-# Retrain the model
-python3 train_model.py
-```
-
-This will:
-1. Download latest labeled data from NASA Exoplanet Archive (Kepler, K2, TESS)
-2. Train a new Random Forest classifier on all available data
-3. Save model files (`exoplanet_classifier.pkl`, `feature_scaler.pkl`, `model_stats.json`)
-4. Display accuracy metrics and feature importances
-
-Restart the Flask API (`predict_api.py`) after retraining to use the new model.
-
-## API Endpoints
-
-### POST `/api/analyze`
-Analyze uploaded CSV light curve file
-- **Body**: FormData with `file` (CSV) and optional `ticId` (string)
-- **Response**: Classification, probability, features, plot data, stored status
-
-### GET `/api/planets`
-Get all discovered planets from database
-- **Response**: List of all planets with metadata
-
-### GET `/api/ml-stats`
-Get ML model statistics
-- **Response**: Model accuracy, training data size, features used
 
 ## Feature Extraction
 
@@ -354,11 +190,7 @@ You can upload light curves from:
 
 ## Contributing
 
-This project was created for the NASA Hackathon. Feel free to fork and improve!
-
-## License
-
-MIT
+This project was created for the NASA Hackathon.
 
 ## Challenge Requirements Checklist
 
@@ -394,10 +226,3 @@ By automating exoplanet classification, this tool enables:
 - Citizen scientists to contribute to exoplanet discovery
 - Researchers to focus on follow-up observations
 - Potential discovery of overlooked exoplanet candidates
-
-## Acknowledgments
-
-- NASA Exoplanet Archive for providing training data and light curve access
-- scikit-learn for the Random Forest implementation
-- Supabase for database infrastructure
-- The open-source astronomy community
