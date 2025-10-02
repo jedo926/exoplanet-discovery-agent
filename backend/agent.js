@@ -626,13 +626,16 @@ async function getAllPlanets() {
 
     if (error) throw error;
 
-    // Deduplicate planets based on host star + orbital period
+    // Deduplicate planets based on host star + orbital period (relaxed)
     const seen = new Map();
     const uniquePlanets = [];
 
     for (const planet of data) {
-      // Create a unique key based on host star and period (rounded to 2 decimals)
-      const key = `${planet.host_star}:${planet.period.toFixed(2)}`;
+      // Create a unique key based on host star and period (rounded to 1 decimal)
+      // Skip deduplication for "Unknown" host stars to show all discoveries
+      const key = planet.host_star === 'Unknown'
+        ? `${planet.planet_name}`
+        : `${planet.host_star}:${planet.period.toFixed(1)}`;
 
       if (!seen.has(key)) {
         seen.set(key, true);
@@ -665,7 +668,8 @@ async function planetExists(planetName, hostStar = null, period = null) {
     if (nameMatch) return true;
 
     // If we have host star and period, check for duplicate by orbital characteristics
-    if (hostStar && period) {
+    // Relaxed: only check if host star is known (not "Unknown")
+    if (hostStar && hostStar !== 'Unknown' && period) {
       const { data: orbitMatch } = await supabase
         .from('exoplanets')
         .select('planet_name, period, host_star')
@@ -673,11 +677,11 @@ async function planetExists(planetName, hostStar = null, period = null) {
         .limit(10);
 
       if (orbitMatch && orbitMatch.length > 0) {
-        // Check if any existing planet has similar period (within 5%)
+        // Check if any existing planet has very similar period (within 1% - much tighter)
         const duplicate = orbitMatch.find(planet => {
           const periodDiff = Math.abs(planet.period - period);
           const percentDiff = (periodDiff / period) * 100;
-          return percentDiff < 5; // Same planet if period within 5%
+          return percentDiff < 1; // Same planet only if period within 1%
         });
 
         if (duplicate) {
@@ -820,13 +824,21 @@ async function analyzeLightCurve(csvContent, ticId = null) {
       // Generate plot data
       const plotData = generatePlotData(lightCurveData, features.orbital_period);
 
-      // Store if confirmed or candidate
+      // Store if confirmed or candidate (relaxed for demo - store all detections)
       let stored = false;
-      if (finalClassification !== 'False Positive' && finalProbability > 0.5) {
+      console.log(`Planet ${i+1}: Classification=${finalClassification}, Probability=${finalProbability.toFixed(2)}, Period=${features.orbital_period.toFixed(2)}d`);
+
+      if (finalClassification !== 'False Positive' && finalProbability > 0.3) {  // Lowered threshold from 0.5 to 0.3
         const planetName = ticId ? `TIC-${ticId}-${String.fromCharCode(98 + i)}` : `Planet-${Date.now()}-${i + 1}`;
 
         // Check for duplicates by name, host star, and orbital period
         const exists = await planetExists(planetName, hostStarName, features.orbital_period);
+        if (!exists) {
+          console.log(`✓ Storing planet: ${planetName}`);
+        } else {
+          console.log(`✗ Skipping duplicate: ${planetName} (Period: ${features.orbital_period.toFixed(2)}d)`);
+        }
+
         if (!exists) {
           await storePlanet({
             planet_name: planetName,

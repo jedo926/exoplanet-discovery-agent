@@ -149,7 +149,7 @@ def analyze_lightcurve(csv_path):
         # Remove outliers - but be conservative to preserve transits
         lc = lc.remove_outliers(sigma=10)
 
-        # Detect multiple planets (up to 3)
+        # Detect multiple planets (up to 10)
         planets = []
         lc_work = lc.copy()
 
@@ -167,7 +167,7 @@ def analyze_lightcurve(csv_path):
             period_grid = np.linspace(0.5, 50, 5000)
             print(f"Standard search: 0.5-50 days (data span: {time_span:.1f} days)", file=sys.stderr)
 
-        for i in range(3):  # Try to find up to 3 planets
+        for i in range(10):  # Try to find up to 10 planets
             # Run BLS on current light curve
             bls = lc_work.to_periodogram(method='bls', period=period_grid)
 
